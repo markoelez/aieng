@@ -1,3 +1,3 @@
-# AIEng
+# AIENG
 
 A terminal-based, model-agnostic AI coding assistant, inspired by Claude Code
