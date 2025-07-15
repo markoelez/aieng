@@ -4,6 +4,8 @@ import json
 import os
 from typing import Dict, List, Optional, Callable
 
+from .utils import parse_llm_json
+
 from .models import (
     FileEdit,
     SearchResult,
@@ -56,7 +58,7 @@ class Agent:
             if not result.success:
                 raise Exception(f"LLM request failed: {result.error}")
             
-            parsed = json.loads(result.data)
+            parsed = parse_llm_json(result.data)
             return LLMResponse(**parsed)
             
         except Exception as e:

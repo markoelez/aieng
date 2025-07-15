@@ -6,6 +6,7 @@ from typing import Dict, List
 from .base import Tool, ToolResult
 from .llm_client import LLMClient
 from ..models import Todo, TodoResult
+from ..utils import parse_llm_json
 
 
 class TodoProcessor(Tool):
@@ -35,7 +36,7 @@ class TodoProcessor(Tool):
                 return ToolResult(success=False, error=result.error)
             
             try:
-                parsed = json.loads(result.data)
+                parsed = parse_llm_json(result.data)
                 cleaned_data = self._clean_todo_result(parsed)
                 todo_result = TodoResult(**cleaned_data)
                 return ToolResult(success=True, data=todo_result)
