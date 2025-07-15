@@ -258,7 +258,7 @@ class TerminalUI:
                 # First, delete the "/" character from the display
                 sys.stdout.write("\b \b")
                 sys.stdout.flush()
-                
+
                 # Clear the command menu by moving down and clearing lines
                 sys.stdout.write(f"\033[{2 + self._get_cursor_offset()}B")  # Move down past input box
                 sys.stdout.write("\r")  # Move to start of line
@@ -270,7 +270,7 @@ class TerminalUI:
                 sys.stdout.write("\033[4C")  # Move right to cursor position (after "│ > ")
                 sys.stdout.flush()
                 self.commands_visible = False
-                
+
                 # Remove from user_input
                 user_input = user_input[:-1]
               else:
@@ -359,7 +359,7 @@ class TerminalUI:
     for ctx in file_contexts:
       self.console.print(f"  [white]• {ctx['path']}[/white]")
     self.console.print()  # Add spacing after file list
-  
+
   def show_reading_file(self, file_path: str, description: str = ""):
     """Show when a file is being read"""
     self.show_read_header(file_path, description or "Reading file contents")
@@ -402,7 +402,9 @@ class TerminalUI:
       operation = "Write"
     else:
       operation = "Update"
-    self.console.print(f"[white]{bullet}[/white] [bold bright_white]{operation}[/bold bright_white]([bright_white]{file_path}[/bright_white])")
+    self.console.print(
+      f"[white]{bullet}[/white] [bold bright_white]{operation}[/bold bright_white]([bright_white]{file_path}[/bright_white])"
+    )
     self.console.print(f"  [white]⎿  {edit_description}[/white]")
 
   def show_diff_content(self, diff_text: str):
@@ -438,19 +440,29 @@ class TerminalUI:
       elif line.startswith("+") and not line.startswith("+++"):
         # Added line - custom green background with white text starting after line numbers
         line_content = line[1:] if len(line) > 1 else ""
-        self.console.print(f"       [white]{new_line_num:>3}[/white] [white on #60875F]+ {line_content}[/white on #60875F]", overflow="ellipsis", no_wrap=True)
+        self.console.print(
+          f"       [white]{new_line_num:>3}[/white] [white on #60875F]+ {line_content}[/white on #60875F]",
+          overflow="ellipsis",
+          no_wrap=True,
+        )
         if new_line_num is not None:
           new_line_num += 1
       elif line.startswith("-") and not line.startswith("---"):
         # Removed line - custom red background with white text starting after line numbers
         line_content = line[1:] if len(line) > 1 else ""
-        self.console.print(f"       [white]{old_line_num:>3}[/white] [white on #875F5F]- {line_content}[/white on #875F5F]", overflow="ellipsis", no_wrap=True)
+        self.console.print(
+          f"       [white]{old_line_num:>3}[/white] [white on #875F5F]- {line_content}[/white on #875F5F]",
+          overflow="ellipsis",
+          no_wrap=True,
+        )
         if old_line_num is not None:
           old_line_num += 1
       elif line.startswith(" "):
         # Context line - regular text
         line_content = line[1:] if len(line) > 1 else ""
-        self.console.print(f"       [white]{new_line_num:>3}[/white]            [white]{line_content}[/white]", overflow="ellipsis", no_wrap=True)
+        self.console.print(
+          f"       [white]{new_line_num:>3}[/white]            [white]{line_content}[/white]", overflow="ellipsis", no_wrap=True
+        )
         if new_line_num is not None:
           new_line_num += 1
         if old_line_num is not None:
@@ -549,7 +561,7 @@ class TerminalUI:
       deps_text = f" (depends on: {', '.join(map(str, todo.dependencies))})" if todo.dependencies else ""
       is_completed = todo.id in completed_todo_ids
       is_current = todo.id == current_todo_id
-      
+
       if i == 0:
         # First todo on same line as ⎿
         if is_completed:
@@ -823,13 +835,13 @@ auto_accept = false  # Auto-accept file edits without confirmation
     self.console.print()
     self.console.print("[bold bright_white]Available Models:[/bold bright_white]")
     self.console.print()
-    
+
     models = ["grok-3", "grok-4"]
     for i, model in enumerate(models, 1):
       self.console.print(f"  [bright_white]{i}. {model}[/bright_white]")
-    
+
     self.console.print()
-    
+
     # Get user choice
     while True:
       try:
@@ -846,19 +858,19 @@ auto_accept = false  # Auto-accept file edits without confirmation
     current_state = "enabled" if self.auto_accept else "disabled"
     self.console.print(f"[bright_white]Auto-accept edits is currently: {current_state}[/bright_white]")
     self.console.print()
-    
+
     # Show options
     self.console.print("[bright_white]1. Enable auto-accept[/bright_white]")
     self.console.print("[bright_white]2. Disable auto-accept[/bright_white]")
     self.console.print()
-    
+
     # Get user choice
     while True:
       try:
         choice = Prompt.ask("Select option (1-2)", choices=["1", "2"])
         new_state = choice == "1"
         new_state_text = "enabled" if new_state else "disabled"
-        
+
         if new_state != self.auto_accept:
           self.console.print(f"[#60875F]● Auto-accept edits {new_state_text}[/#60875F]")
           return f"__AUTO_TOGGLE__{new_state}"  # Special return value for auto-accept toggle

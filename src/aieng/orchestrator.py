@@ -15,11 +15,11 @@ class AIAgentOrchestrator:
     self.context_manager = FileContextManager(project_root=project_root)
     self.diff_processor = DiffProcessor(project_root=project_root)
     self.config = self.load_config()
-    
+
     # Use model from config if available, otherwise use provided default
     self.model = self.config.get("model", model)
     self.agent = Agent(model=self.model, ui_callback=self._ui_callback, project_root=project_root, config=self.config)
-    
+
     # Update UI with auto-accept status
     self.ui.set_auto_accept(self.config.get("auto_accept", False))
 
@@ -70,11 +70,11 @@ class AIAgentOrchestrator:
 
       # Generate todo plan
       todo_plan = await self.agent.generate_todo_plan(user_request, file_contexts)
-      
+
       # Find the first todo that will be worked on
       first_ready_todos = [todo for todo in todo_plan.todos if not todo.dependencies]
       first_todo_id = first_ready_todos[0].id if first_ready_todos else todo_plan.todos[0].id
-      
+
       # Show todo plan with first task marked as current
       self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, first_todo_id, [])
 
@@ -115,12 +115,13 @@ class AIAgentOrchestrator:
         # Execute searches if any
         if todo_result.searches:
           from .agent import SearchResult
+
           search_results = []
           for search_data in todo_result.searches:
             query = search_data.get("query", "")
             command = search_data.get("command", "")
             description = search_data.get("description", f"Search for todo {current_todo.id}")
-            
+
             if command:
               # Execute the search command and capture results
               command_result = await self.agent.execute_command(command)
@@ -128,10 +129,10 @@ class AIAgentOrchestrator:
                 query=query,
                 command=command,
                 results=command_result.stdout if command_result.success else command_result.stderr,
-                description=description
+                description=description,
               )
               search_results.append(search_result)
-          
+
           if search_results:
             # Show search results
             self.ui.show_multiple_searches(search_results)
@@ -156,7 +157,7 @@ class AIAgentOrchestrator:
             # Get user confirmation
             auto_accept = hasattr(self, "config") and self.config.get("auto_accept", False)
             should_apply, auto_accept_enabled = self.ui.confirm_changes(auto_accept=auto_accept)
-            
+
             # Update config if auto-accept was enabled
             if auto_accept_enabled:
               self.config["auto_accept"] = True
@@ -404,17 +405,17 @@ class AIAgentOrchestrator:
     if new_model not in allowed_models:
       self.ui.console.print(f"[red]Error: Model '{new_model}' not supported. Allowed models: {', '.join(allowed_models)}[/red]")
       return
-    
+
     # Update model
     self.model = new_model
     self.config["model"] = new_model
-    
+
     # Recreate agent with new model
     self.agent = Agent(model=new_model, ui_callback=self._ui_callback, project_root=self.context_manager.project_root, config=self.config)
-    
+
     # Save config
     self.save_config()
-    
+
     # Update welcome display with new model
     self.ui.console.print(f"[#60875F]● Model changed to {new_model}[/#60875F]")
 
@@ -423,10 +424,10 @@ class AIAgentOrchestrator:
     # Update auto-accept setting
     self.config["auto_accept"] = new_state
     self.ui.set_auto_accept(new_state)
-    
+
     # Save config
     self.save_config()
-    
+
     state_text = "enabled" if new_state else "disabled"
     self.ui.console.print(f"[#60875F]● Auto-accept setting saved: {state_text}[/#60875F]")
 

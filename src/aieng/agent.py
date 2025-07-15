@@ -7,100 +7,97 @@ from typing import Dict, List, Optional, Callable
 from .utils import parse_llm_json
 
 from .models import (
-    FileEdit,
-    SearchResult,
-    LLMResponse,
-    Todo,
-    TodoPlan,
-    CommandResult,
-    TodoResult,
+  FileEdit,
+  SearchResult,
+  LLMResponse,
+  Todo,
+  TodoPlan,
+  CommandResult,
+  TodoResult,
 )
 from .tools import (
-    CommandExecutor,
-    LLMClient,
-    TodoPlanner,
-    TodoProcessor,
-    EditSummarizer,
+  CommandExecutor,
+  LLMClient,
+  TodoPlanner,
+  TodoProcessor,
+  EditSummarizer,
 )
 
 
 class Agent:
-    """Main agent class that coordinates various tools."""
-    
-    def __init__(self, model: str = "grok-4", ui_callback: Optional[Callable] = None, 
-                 project_root: str = ".", config: dict = None):
-        """Initialize the agent with its tools."""
-        self.project_root = os.path.abspath(project_root)
-        self.ui_callback = ui_callback
-        
-        # Initialize tools
-        self.llm_client = LLMClient(model=model, config=config, ui_callback=ui_callback)
-        self.command_executor = CommandExecutor(project_root=project_root, ui_callback=ui_callback)
-        self.todo_planner = TodoPlanner(self.llm_client)
-        self.todo_processor = TodoProcessor(self.llm_client)
-        self.edit_summarizer = EditSummarizer(self.llm_client)
-    
-    async def execute_command(self, command: str, timeout: int = 30) -> CommandResult:
-        """Execute a terminal command."""
-        result = await self.command_executor.execute(command=command, timeout=timeout)
-        return result.data
-    
-    async def process_request(self, user_request: str, file_contexts: List[Dict[str, str]]) -> LLMResponse:
-        """Process a user request and generate edits."""
-        try:
-            messages = [
-                {"role": "system", "content": self._build_system_prompt()},
-                {"role": "user", "content": self._build_user_prompt(user_request, file_contexts)},
-            ]
-            
-            result = await self.llm_client.execute(messages=messages, response_format={"type": "json_object"})
-            
-            if not result.success:
-                raise Exception(f"LLM request failed: {result.error}")
-            
-            parsed = parse_llm_json(result.data)
-            return LLMResponse(**parsed)
-            
-        except Exception as e:
-            raise Exception(f"Error processing LLM request: {e}")
-    
-    def parse_edits(self, llm_response: LLMResponse) -> List[FileEdit]:
-        """Parse edits from LLM response."""
-        edits = []
-        for edit_data in llm_response.edits:
-            edit = FileEdit(
-                file_path=edit_data["file_path"],
-                old_content=edit_data["old_content"],
-                new_content=edit_data["new_content"],
-                description=edit_data["description"],
-            )
-            edits.append(edit)
-        return edits
-    
-    async def generate_todo_plan(self, user_request: str, file_contexts: List[Dict[str, str]]) -> TodoPlan:
-        """Generate a todo plan for the user request."""
-        result = await self.todo_planner.execute(user_request=user_request, file_contexts=file_contexts)
-        return result.data
-    
-    async def process_todo(self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], 
-                          completed_todos: List[Todo] = None) -> TodoResult:
-        """Process a single todo."""
-        result = await self.todo_processor.execute(
-            todo=todo,
-            user_request=user_request,
-            file_contexts=file_contexts,
-            completed_todos=completed_todos or []
-        )
-        return result.data
-    
-    async def generate_edit_summary(self, applied_edits: List[FileEdit], user_request: str) -> str:
-        """Generate a summary of applied edits."""
-        result = await self.edit_summarizer.execute(applied_edits=applied_edits, user_request=user_request)
-        return result.data
-    
-    def _build_system_prompt(self) -> str:
-        """Build the system prompt for LLM requests."""
-        return """You are an AI coding assistant. When given a user request and file context, respond with a structured JSON containing:
+  """Main agent class that coordinates various tools."""
+
+  def __init__(self, model: str = "grok-4", ui_callback: Optional[Callable] = None, project_root: str = ".", config: dict = None):
+    """Initialize the agent with its tools."""
+    self.project_root = os.path.abspath(project_root)
+    self.ui_callback = ui_callback
+
+    # Initialize tools
+    self.llm_client = LLMClient(model=model, config=config, ui_callback=ui_callback)
+    self.command_executor = CommandExecutor(project_root=project_root, ui_callback=ui_callback)
+    self.todo_planner = TodoPlanner(self.llm_client)
+    self.todo_processor = TodoProcessor(self.llm_client)
+    self.edit_summarizer = EditSummarizer(self.llm_client)
+
+  async def execute_command(self, command: str, timeout: int = 30) -> CommandResult:
+    """Execute a terminal command."""
+    result = await self.command_executor.execute(command=command, timeout=timeout)
+    return result.data
+
+  async def process_request(self, user_request: str, file_contexts: List[Dict[str, str]]) -> LLMResponse:
+    """Process a user request and generate edits."""
+    try:
+      messages = [
+        {"role": "system", "content": self._build_system_prompt()},
+        {"role": "user", "content": self._build_user_prompt(user_request, file_contexts)},
+      ]
+
+      result = await self.llm_client.execute(messages=messages, response_format={"type": "json_object"})
+
+      if not result.success:
+        raise Exception(f"LLM request failed: {result.error}")
+
+      parsed = parse_llm_json(result.data)
+      return LLMResponse(**parsed)
+
+    except Exception as e:
+      raise Exception(f"Error processing LLM request: {e}")
+
+  def parse_edits(self, llm_response: LLMResponse) -> List[FileEdit]:
+    """Parse edits from LLM response."""
+    edits = []
+    for edit_data in llm_response.edits:
+      edit = FileEdit(
+        file_path=edit_data["file_path"],
+        old_content=edit_data["old_content"],
+        new_content=edit_data["new_content"],
+        description=edit_data["description"],
+      )
+      edits.append(edit)
+    return edits
+
+  async def generate_todo_plan(self, user_request: str, file_contexts: List[Dict[str, str]]) -> TodoPlan:
+    """Generate a todo plan for the user request."""
+    result = await self.todo_planner.execute(user_request=user_request, file_contexts=file_contexts)
+    return result.data
+
+  async def process_todo(
+    self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], completed_todos: List[Todo] = None
+  ) -> TodoResult:
+    """Process a single todo."""
+    result = await self.todo_processor.execute(
+      todo=todo, user_request=user_request, file_contexts=file_contexts, completed_todos=completed_todos or []
+    )
+    return result.data
+
+  async def generate_edit_summary(self, applied_edits: List[FileEdit], user_request: str) -> str:
+    """Generate a summary of applied edits."""
+    result = await self.edit_summarizer.execute(applied_edits=applied_edits, user_request=user_request)
+    return result.data
+
+  def _build_system_prompt(self) -> str:
+    """Build the system prompt for LLM requests."""
+    return """You are an AI coding assistant. When given a user request and file context, respond with a structured JSON containing:
 1. "summary": A brief description of changes you're making
 2. "commands": (optional) A list of terminal commands to run, each with:
    - "command": The shell command to execute
@@ -138,17 +135,17 @@ IMPORTANT EDITING GUIDELINES:
 
 Only make necessary changes to implement the user's request.
 """
-    
-    def _build_user_prompt(self, user_request: str, file_contexts: List[Dict[str, str]]) -> str:
-        """Build the user prompt for LLM requests."""
-        prompt_parts = [f"User request: {user_request}\n"]
-        
-        if file_contexts:
-            prompt_parts.append("File contexts:")
-            for ctx in file_contexts:
-                prompt_parts.append(f"\n--- {ctx['path']} ---")
-                prompt_parts.append(ctx["content"])
-                prompt_parts.append("--- End ---\n")
-        
-        prompt_parts.append("\nRespond with valid JSON only.")
-        return "\n".join(prompt_parts)
+
+  def _build_user_prompt(self, user_request: str, file_contexts: List[Dict[str, str]]) -> str:
+    """Build the user prompt for LLM requests."""
+    prompt_parts = [f"User request: {user_request}\n"]
+
+    if file_contexts:
+      prompt_parts.append("File contexts:")
+      for ctx in file_contexts:
+        prompt_parts.append(f"\n--- {ctx['path']} ---")
+        prompt_parts.append(ctx["content"])
+        prompt_parts.append("--- End ---\n")
+
+    prompt_parts.append("\nRespond with valid JSON only.")
+    return "\n".join(prompt_parts)

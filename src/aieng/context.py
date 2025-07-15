@@ -154,7 +154,7 @@ class FileContextManager:
       file_paths = [p for p in file_paths if p.exists()]
     else:
       file_paths = self.find_relevant_files(user_request)
-      
+
       # For testing-related requests, ensure we get complete context for source files
       if any(keyword in user_request.lower() for keyword in ["test", "testing", "unittest", "pytest"]):
         # Prioritize source files that need testing by putting them first
