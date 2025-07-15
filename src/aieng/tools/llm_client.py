@@ -55,7 +55,11 @@ class LLMClient(Tool):
           if attempt > 0:
             self._notify_ui("show_llm_retry_success", attempt + 1)
 
-          return ToolResult(success=True, data=response.choices[0].message.content)
+          content = response.choices[0].message.content
+          if not content or not content.strip():
+            raise ValueError(f"Empty response from LLM API on attempt {attempt + 1}")
+
+          return ToolResult(success=True, data=content)
 
         except Exception as e:
           last_error = e

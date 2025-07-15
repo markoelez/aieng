@@ -1,26 +1,25 @@
 """AI Agent for code generation and modification."""
 
-import json
 import os
-from typing import Dict, List, Optional, Callable
+import json
+from typing import Dict, List, Callable, Optional
 
-from .utils import parse_llm_json
-
-from .models import (
-  FileEdit,
-  SearchResult,
-  LLMResponse,
-  Todo,
-  TodoPlan,
-  CommandResult,
-  TodoResult,
-)
 from .tools import (
-  CommandExecutor,
   LLMClient,
   TodoPlanner,
   TodoProcessor,
   EditSummarizer,
+  CommandExecutor,
+)
+from .utils import parse_llm_json
+from .models import (
+  Todo,
+  FileEdit,
+  TodoPlan,
+  TodoResult,
+  LLMResponse,
+  SearchResult,
+  CommandResult,
 )
 
 
@@ -97,7 +96,9 @@ class Agent:
 
   def _build_system_prompt(self) -> str:
     """Build the system prompt for LLM requests."""
-    return """You are an AI coding assistant. When given a user request and file context, respond with a structured JSON containing:
+    return """You are an AI coding assistant. You MUST respond ONLY with valid JSON. Do not include any text before or after the JSON.
+
+When given a user request and file context, respond with a structured JSON containing:
 1. "summary": A brief description of changes you're making
 2. "commands": (optional) A list of terminal commands to run, each with:
    - "command": The shell command to execute

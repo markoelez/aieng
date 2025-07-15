@@ -29,7 +29,7 @@ class TodoProcessor(Tool):
       messages = [
         {
           "role": "system",
-          "content": "You are an expert software engineer who completes tasks efficiently by generating file edits. You are decisive, productive, and focus on delivering working code rather than excessive analysis.",
+          "content": "You are an expert software engineer who completes tasks efficiently by generating file edits. You are decisive, productive, and focus on delivering working code rather than excessive analysis. You MUST respond ONLY with valid JSON. Do not include any text before or after the JSON.",
         },
         {"role": "user", "content": prompt},
       ]
