@@ -301,22 +301,22 @@ class AIAgentOrchestrator:
     line1_content = " ✻ Welcome to AIENG!"
     line1_padding = box_width - len(line1_content)
 
-    # Line 3: model name
-    line3_content = f"   Model: {self.model}"
+    # Line 3: API base URL
+    api_base_url = self.config.get("api_base_url", "https://api.x.ai/v1")
+    line3_content = f"   API: {api_base_url}"
     line3_padding = box_width - len(line3_content)
 
-    # Line 4: auto-accept status
-    auto_accept_status = "enabled" if self.config.get("auto_accept", False) else "disabled"
-    line4_content = f"   Auto-accept: {auto_accept_status}"
+    # Line 4: model name
+    line4_content = f"   Model: {self.model}"
     line4_padding = box_width - len(line4_content)
 
-    # Line 5: API base URL
-    api_base_url = self.config.get("api_base_url", "https://api.x.ai/v1")
-    line5_content = f"   API: {api_base_url}"
+    # Line 5: current directory
+    line5_content = f"   Directory: {current_dir}"
     line5_padding = box_width - len(line5_content)
 
-    # Line 6: current directory
-    line6_content = f"   Directory: {current_dir}"
+    # Line 6: auto-accept status
+    auto_accept_status = "enabled" if self.config.get("auto_accept", False) else "disabled"
+    line6_content = f"   Auto-accept: {auto_accept_status}"
     line6_padding = box_width - len(line6_content)
 
     # Create the welcome message with mixed colors
@@ -338,25 +338,25 @@ class AIAgentOrchestrator:
     welcome_text.append(" " * box_width, style="#EB999A")
     welcome_text.append("│\n", style="#EB999A")
 
-    # Model line
+    # API line
     welcome_text.append("│", style="#EB999A")
     welcome_text.append(line3_content, style="#666666")
     welcome_text.append(" " * line3_padding, style="#EB999A")
     welcome_text.append("│\n", style="#EB999A")
 
-    # Auto-accept line
+    # Model line
     welcome_text.append("│", style="#EB999A")
     welcome_text.append(line4_content, style="#666666")
     welcome_text.append(" " * line4_padding, style="#EB999A")
     welcome_text.append("│\n", style="#EB999A")
 
-    # API line
+    # Directory line
     welcome_text.append("│", style="#EB999A")
     welcome_text.append(line5_content, style="#666666")
     welcome_text.append(" " * line5_padding, style="#EB999A")
     welcome_text.append("│\n", style="#EB999A")
 
-    # Directory line
+    # Auto-accept line
     welcome_text.append("│", style="#EB999A")
     welcome_text.append(line6_content, style="#666666")
     welcome_text.append(" " * line6_padding, style="#EB999A")
