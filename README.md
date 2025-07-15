@@ -47,3 +47,32 @@ If you don't have uv installed, get it from [uv installation guide](https://docs
    ```bash
    aieng
    ```
+
+## Configuration
+
+### Switching Models
+
+AIENG is model agnostic. To switch models:
+
+1. **Initialize configuration file** (if not already created):
+   ```bash
+   aieng
+   # Type /init to create aieng.toml
+   ```
+
+2. **Edit `aieng.toml`** in your project directory:
+   ```toml
+   # Model Configuration
+   model = "grok-4"  # Change to your desired model
+   api_base_url = "https://api.x.ai/v1"  # Change to your provider's API endpoint
+   
+   # Examples for different providers:
+   # OpenAI: api_base_url = "https://api.openai.com/v1"
+   # Anthropic: api_base_url = "https://api.anthropic.com/v1"
+   # Local: api_base_url = "http://localhost:11434/v1"
+   ```
+
+3. **Update API key** in `.env`:
+   ```bash
+   API_KEY=your_provider_api_key_here
+   ```
