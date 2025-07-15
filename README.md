@@ -11,7 +11,7 @@ A terminal-based, model-agnostic AI coding assistant, inspired by Claude Code
 
 ### Install uv
 
-If you don't have uv installed, get it from [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/):
+If you don't have uv installed, get it from [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/)
 
 ### Build from Source
 

@@ -4,8 +4,8 @@ import json
 from typing import Dict, List
 
 from .base import Tool, ToolResult
-from ..models import Todo, TodoPlan
 from ..utils import parse_llm_json
+from ..models import Todo, TodoPlan
 from .llm_client import LLMClient
 
 
@@ -22,61 +22,64 @@ class TodoPlanner(Tool):
       context_summary = "\n".join([f"- {ctx['path']}: {len(ctx['content'])} chars" for ctx in file_contexts])
 
       planning_prompt = f"""
-You are an engineering manager creating a strategic implementation plan. Break down this user request into 2-5 high-level objectives that an engineer can execute.
+You are a senior engineer breaking down a user request into concrete, actionable tasks. Create 2-5 focused tasks that can be implemented one by one.
 
 User Request: {user_request}
 
 Available Codebase:
 {context_summary}
 
-Your role: Create strategic, actionable objectives that give the engineer flexibility in implementation approach.
+Your goal: Break down the request into distinct implementation tasks that are:
+- Concrete enough to start working on immediately
+- Focused on a specific aspect or component
+- Not prescriptive about exact implementation details
+- Ordered logically with clear dependencies
 
-PLANNING PRINCIPLES:
-1. Focus on OUTCOMES and OBJECTIVES, not specific implementation details
-2. Give the engineer room to decide HOW to implement
-3. Tasks should be measurable and testable when complete
-4. Think at the feature/capability level, not file level
-5. Order tasks by logical dependencies and priority
+TASK GUIDELINES:
+1. Each task should focus on implementing one specific capability or component
+2. Tasks should be completable in a reasonable time (not too broad)
+3. Avoid being too prescriptive about specific files or implementation details
+4. Make tasks concrete and actionable, not vague objectives
+5. Order tasks so each builds on the previous
 
-Examples of GOOD manager-level tasks:
+GOOD EXAMPLES:
 
-Request: "add tests"
-Bad: "Create tests/test_agent.py for Agent class methods"
-Good: "Establish comprehensive unit test coverage", "Implement integration testing strategy"
+Request: "add tests to this project"
+Too vague: "Establish comprehensive testing infrastructure"
+Too specific: "Create test_agent.py with test_process_request method"
+Just right: "Create unit tests for agent functionality", "Add tests for orchestrator workflows"
 
 Request: "improve error handling"
-Bad: "Add try-catch blocks to LLM calls in agent.py" 
-Good: "Enhance error handling and recovery mechanisms", "Implement user-friendly error reporting"
+Too vague: "Enhance error handling mechanisms"
+Too specific: "Add try-catch to line 45 in agent.py"
+Just right: "Add error handling to LLM API calls", "Implement user-friendly error messages"
 
 Request: "add documentation"
-Bad: "Add docstrings to Agent class methods"
-Good: "Create comprehensive user documentation", "Document API and architecture"
-
-Request: "optimize performance"
-Bad: "Optimize LLM calls in agent.py"
-Good: "Improve system performance and response times", "Optimize resource usage patterns"
+Too vague: "Create comprehensive documentation"
+Too specific: "Add docstring to Agent.__init__ method"
+Just right: "Write user guide with examples", "Document main classes and methods"
 
 Return JSON with:
 {{
-  "summary": "Strategic plan overview (max 15 words)",
+  "summary": "Clear plan description (max 15 words)",
   "todos": [
     {{
       "id": 1,
-      "task": "High-level objective/capability to implement (max 15 words)",
-      "reasoning": "Business value or technical need (max 12 words)", 
+      "task": "Concrete, focused task to implement (max 12 words)",
+      "reasoning": "Why this task is needed (max 10 words)", 
       "priority": "high/medium/low",
       "dependencies": []
     }}
   ]
 }}
 
-FOCUS: Strategic objectives, not implementation details. Let the engineer decide the HOW.
+REMEMBER: Create tasks that are concrete actions, not broad objectives or tiny details.
 """
 
       messages = [
         {
           "role": "system",
-          "content": "You are an experienced engineering manager who creates strategic implementation plans. Focus on high-level objectives and outcomes, giving engineers flexibility in how they implement solutions.",
+          "content": "You are a senior engineer who breaks down requests into concrete, focused implementation tasks. Create actionable tasks that are specific enough to work on but not prescriptive about implementation details.",
         },
         {"role": "user", "content": planning_prompt},
       ]
