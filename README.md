@@ -76,3 +76,8 @@ AIENG is model agnostic. To switch models:
    ```bash
    API_KEY=your_provider_api_key_here
    ```
+
+## TODOs
+
+- [ ] Add self-reflection between actions
+- [ ] Ensure actions render progressively rather than in batch
