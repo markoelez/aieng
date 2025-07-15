@@ -14,7 +14,7 @@ from rich.prompt import Prompt, Confirm
 from rich.syntax import Syntax
 from rich.console import Console
 
-from .agent import FileEdit
+from .models import FileEdit
 
 
 class TerminalUI:
@@ -359,6 +359,10 @@ class TerminalUI:
     for ctx in file_contexts:
       self.console.print(f"  [white]• {ctx['path']}[/white]")
     self.console.print()  # Add spacing after file list
+  
+  def show_reading_file(self, file_path: str, description: str = ""):
+    """Show when a file is being read"""
+    self.show_read_header(file_path, description or "Reading file contents")
 
   def show_generating_response(self):
     self.show_step("Generating Response")
@@ -389,12 +393,16 @@ class TerminalUI:
         self.console.print(f"         [white]{line}[/white]")
     self.console.print()  # Add spacing after search results
 
-  def show_diff_header(self, file_path: str, edit_description: str):
+  def show_diff_header(self, file_path: str, edit_description: str, is_new_file: bool = False):
     """Show diff in Claude Code style"""
     self.console.print()
-    # Custom formatting for Update header - only "Update" is bold
+    # Custom formatting for operation header - only the operation type is bold
     bullet = "⏺"
-    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Update[/bold bright_white]([bright_white]{file_path}[/bright_white])")
+    if is_new_file:
+      operation = "Write"
+    else:
+      operation = "Update"
+    self.console.print(f"[white]{bullet}[/white] [bold bright_white]{operation}[/bold bright_white]([bright_white]{file_path}[/bright_white])")
     self.console.print(f"  [white]⎿  {edit_description}[/white]")
 
   def show_diff_content(self, diff_text: str):
@@ -465,7 +473,9 @@ class TerminalUI:
     for i, (diff_text, edit) in enumerate(zip(diff_previews, edits)):
       if i > 0:
         self.console.print()  # Add spacing between multiple diffs
-      self.show_diff_header(edit.file_path, edit.description)
+      # Check if this is a new file (empty old_content)
+      is_new_file = not edit.old_content.strip()
+      self.show_diff_header(edit.file_path, edit.description, is_new_file)
       self.show_diff_content(diff_text)
       time.sleep(0.1)  # Small delay for streaming effect
     self.console.print()  # Add spacing after all diffs
@@ -515,27 +525,47 @@ class TerminalUI:
 
   def show_edit_summary(self, summary: str):
     self.console.print()
-    self.show_step(f"Summary: {summary}", is_final=True)
+    self.show_step("Summary", is_final=True)
+    # Display the bulleted list of edits
+    for line in summary.split("\n"):
+      if line.strip():
+        self.console.print(f"  [white]{line}[/white]")
     self.console.print()  # Add spacing after summary
 
   def show_planning(self):
     self.show_step("Planning")
     self.console.print()  # Add spacing after step
 
-  def show_todo_plan(self, plan_summary: str, todos):
+  def show_todo_plan(self, plan_summary: str, todos, current_todo_id=None, completed_todo_ids=None):
     self.console.print()
     # Custom formatting for Update Todos header
     bullet = "⏺"
     self.console.print(f"[white]{bullet}[/white] [bold bright_white]Update Todos[/bold bright_white]")
 
+    if completed_todo_ids is None:
+      completed_todo_ids = []
+
     for i, todo in enumerate(todos):
       deps_text = f" (depends on: {', '.join(map(str, todo.dependencies))})" if todo.dependencies else ""
+      is_completed = todo.id in completed_todo_ids
+      is_current = todo.id == current_todo_id
+      
       if i == 0:
         # First todo on same line as ⎿
-        self.console.print(f"  [white]⎿  ☐ {todo.task}{deps_text}[/white]")
+        if is_completed:
+          self.console.print(f"  [white]⎿[/white]  [#8FDC8D]☒ {todo.task}{deps_text}[/#8FDC8D]")
+        elif is_current:
+          self.console.print(f"  [white]⎿[/white]  [bold #B7E0FF]⏺ {todo.task}{deps_text}[/bold #B7E0FF]")
+        else:
+          self.console.print(f"  [white]⎿[/white]  [white]☐ {todo.task}{deps_text}[/white]")
       else:
         # Subsequent todos aligned with first
-        self.console.print(f"     [white]☐ {todo.task}{deps_text}[/white]")
+        if is_completed:
+          self.console.print(f"     [#8FDC8D]☒ {todo.task}{deps_text}[/#8FDC8D]")
+        elif is_current:
+          self.console.print(f"     [bold #B7E0FF]⏺ {todo.task}{deps_text}[/bold #B7E0FF]")
+        else:
+          self.console.print(f"     [white]☐ {todo.task}{deps_text}[/white]")
     self.console.print()  # Add spacing after todo plan
 
   def show_processing_todo(self, todo_id: int, task: str):
@@ -610,12 +640,14 @@ class TerminalUI:
     self.console.print(f"[white]{bullet}[/white] [bold bright_white]Update Todos[/bold bright_white]")
     self._first_todo_in_update = True
 
-  def show_todo_status(self, todo_id: int, task: str, completed: bool):
+  def show_todo_status(self, todo_id: int, task: str, completed: bool, is_current: bool = False):
     """Show individual todo status with new formatting"""
     if hasattr(self, "_first_todo_in_update") and self._first_todo_in_update:
       # First todo on same line as ⎿
       if completed:
         self.console.print(f"  [white]⎿[/white]  [#8FDC8D]☒ {task}[/#8FDC8D]")
+      elif is_current:
+        self.console.print(f"  [white]⎿[/white]  [bold #B7E0FF]⏺ {task}[/bold #B7E0FF]")
       else:
         self.console.print(f"  [white]⎿[/white]  [white]☐ {task}[/white]")
       self._first_todo_in_update = False
@@ -623,6 +655,8 @@ class TerminalUI:
       # Subsequent todos aligned with first
       if completed:
         self.console.print(f"     [#8FDC8D]☒ {task}[/#8FDC8D]")
+      elif is_current:
+        self.console.print(f"     [bold #B7E0FF]⏺ {task}[/bold #B7E0FF]")
       else:
         self.console.print(f"     [white]☐ {task}[/white]")
 
@@ -656,10 +690,17 @@ class TerminalUI:
         self.console.print(f"    [white]{line}[/white]")
 
     if result.stderr.strip():
-      self.console.print("  [white]Error output:[/white]")
-      stderr_display = result.stderr[:500] + "..." if len(result.stderr) > 500 else result.stderr
-      for line in stderr_display.strip().split("\n"):
-        self.console.print(f"    [red]{line}[/red]")
+      # Show stderr with appropriate labeling based on command success
+      if result.success:
+        self.console.print("  [white]Output:[/white]")
+        stderr_display = result.stderr[:500] + "..." if len(result.stderr) > 500 else result.stderr
+        for line in stderr_display.strip().split("\n"):
+          self.console.print(f"    [white]{line}[/white]")
+      else:
+        self.console.print("  [white]Error output:[/white]")
+        stderr_display = result.stderr[:500] + "..." if len(result.stderr) > 500 else result.stderr
+        for line in stderr_display.strip().split("\n"):
+          self.console.print(f"    [red]{line}[/red]")
 
     self.console.print()  # Add spacing after command result
 

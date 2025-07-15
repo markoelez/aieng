@@ -4,7 +4,8 @@ from rich.prompt import Confirm
 
 from .ui import TerminalUI
 from .diff import DiffProcessor
-from .agent import Agent, FileEdit
+from .agent import Agent
+from .models import FileEdit
 from .context import FileContextManager
 
 
@@ -69,7 +70,13 @@ class AIAgentOrchestrator:
 
       # Generate todo plan
       todo_plan = await self.agent.generate_todo_plan(user_request, file_contexts)
-      self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos)
+      
+      # Find the first todo that will be worked on
+      first_ready_todos = [todo for todo in todo_plan.todos if not todo.dependencies]
+      first_todo_id = first_ready_todos[0].id if first_ready_todos else todo_plan.todos[0].id
+      
+      # Show todo plan with first task marked as current
+      self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, first_todo_id, [])
 
       # Process todos sequentially with dependency handling
       completed_todos = []
@@ -167,11 +174,16 @@ class AIAgentOrchestrator:
                 completed_todos.append(current_todo)
 
                 # Show updated todo list
-                self.ui.show_todo_update_header()
-                for todo in todo_plan.todos:
-                  is_completed = todo.id in [ct.id for ct in completed_todos]
-                  self.ui.show_todo_status(todo.id, todo.task, is_completed)
-                self.ui.show_todo_update_complete()
+                completed_ids = [ct.id for ct in completed_todos]
+                # Find next todo that will be worked on
+                next_todo_id = None
+                if remaining_todos:
+                  next_ready = [todo for todo in remaining_todos if all(dep_id in completed_ids for dep_id in todo.dependencies)]
+                  if next_ready:
+                    next_todo_id = next_ready[0].id
+                  elif remaining_todos:
+                    next_todo_id = remaining_todos[0].id
+                self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, next_todo_id, completed_ids)
               else:
                 first_failure = next(result for result in results if not result.success)
                 self.ui.show_error(f"Failed to apply edits for todo {current_todo.id}: {first_failure.error}")
@@ -215,11 +227,16 @@ class AIAgentOrchestrator:
                       completed_todos.append(current_todo)
 
                       # Show updated todo list
-                      self.ui.show_todo_update_header()
-                      for todo in todo_plan.todos:
-                        is_completed = todo.id in [ct.id for ct in completed_todos]
-                        self.ui.show_todo_status(todo.id, todo.task, is_completed)
-                      self.ui.show_todo_update_complete()
+                      completed_ids = [ct.id for ct in completed_todos]
+                      # Find next todo that will be worked on
+                      next_todo_id = None
+                      if remaining_todos:
+                        next_ready = [todo for todo in remaining_todos if all(dep_id in completed_ids for dep_id in todo.dependencies)]
+                        if next_ready:
+                          next_todo_id = next_ready[0].id
+                        elif remaining_todos:
+                          next_todo_id = remaining_todos[0].id
+                      self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, next_todo_id, completed_ids)
                     else:
                       self.ui.show_todo_completion(current_todo.id, False, "Retry also failed, skipping")
                       continue
@@ -241,11 +258,16 @@ class AIAgentOrchestrator:
             completed_todos.append(current_todo)
 
             # Show updated todo list
-            self.ui.show_todo_update_header()
-            for todo in todo_plan.todos:
-              is_completed = todo.id in [ct.id for ct in completed_todos]
-              self.ui.show_todo_status(todo.id, todo.task, is_completed)
-            self.ui.show_todo_update_complete()
+            completed_ids = [ct.id for ct in completed_todos]
+            # Find next todo that will be worked on
+            next_todo_id = None
+            if remaining_todos:
+              next_ready = [todo for todo in remaining_todos if all(dep_id in completed_ids for dep_id in todo.dependencies)]
+              if next_ready:
+                next_todo_id = next_ready[0].id
+              elif remaining_todos:
+                next_todo_id = remaining_todos[0].id
+            self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, next_todo_id, completed_ids)
 
       # Generate final summary only if edits were applied
       if all_edits:
