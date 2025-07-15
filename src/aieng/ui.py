@@ -255,6 +255,10 @@ class TerminalUI:
             if user_input:
               # Hide command menu if we're deleting the "/"
               if user_input == "/" and self.commands_visible:
+                # First, delete the "/" character from the display
+                sys.stdout.write("\b \b")
+                sys.stdout.flush()
+                
                 # Clear the command menu by moving down and clearing lines
                 sys.stdout.write(f"\033[{2 + self._get_cursor_offset()}B")  # Move down past input box
                 sys.stdout.write("\r")  # Move to start of line
@@ -263,13 +267,17 @@ class TerminalUI:
                   sys.stdout.write("\033[B")  # Move down to next line
                 # Move back up to input position
                 sys.stdout.write(f"\033[{2 + self._get_cursor_offset() + 6}A")  # Move back up
-                sys.stdout.write("\033[3C")  # Move right to cursor position (after "│ >")
+                sys.stdout.write("\033[4C")  # Move right to cursor position (after "│ > ")
                 sys.stdout.flush()
                 self.commands_visible = False
-
-              user_input = user_input[:-1]
-              sys.stdout.write("\b \b")
-              sys.stdout.flush()
+                
+                # Remove from user_input
+                user_input = user_input[:-1]
+              else:
+                # Normal backspace handling
+                user_input = user_input[:-1]
+                sys.stdout.write("\b \b")
+                sys.stdout.flush()
 
           elif ord(char) >= 32:  # Printable characters
             # Clear quit hint if it's showing
