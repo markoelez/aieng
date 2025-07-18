@@ -499,7 +499,6 @@ class TerminalUI:
 
   def show_summary(self, summary: str, num_edits: int):
     """Show summary in Claude Code style"""
-    self.console.print()
     self.show_step("Summary")
     self.console.print(f"  [white]Proposed {num_edits} edit(s): {summary}[/white]")
     self.console.print()  # Add spacing after summary
@@ -536,13 +535,13 @@ class TerminalUI:
     if auto_accept:
       self.console.print(f"[bright_white]Auto-accepting changes to {file_path}[/bright_white]")
       return (True, True, False)  # Apply changes, continue, no change to auto-accept
-    
+
     self.console.print(f"[bright_white]Apply changes to {file_path}?[/bright_white]")
     self.console.print("[bright_white]1. Yes, apply this file[/bright_white]")
     self.console.print("[bright_white]2. No, skip this file[/bright_white]")
     self.console.print("[bright_white]3. No, skip all remaining files[/bright_white]")
     choice = Prompt.ask("Enter your choice (1-3)", choices=["1", "2", "3"], default="2")
-    
+
     if choice == "1":
       # Only ask about auto-accept on the first file approval
       self.console.print("[bright_white]Enable auto-accept for remaining files?[/bright_white]")
@@ -558,6 +557,7 @@ class TerminalUI:
 
   def show_applying_changes(self):
     self.show_step("Applying Changes")
+    self.console.print()  # Add spacing after "Applying Changes"
 
   def show_success(self, num_edits: int):
     self.show_step(f"Successfully applied {num_edits} edit(s)", is_final=True)
@@ -612,7 +612,6 @@ class TerminalUI:
     self.console.print()  # Add spacing after todo plan
 
   def show_processing_todo(self, todo_id: int, task: str):
-    self.console.print()  # Add spacing before new todo
     self.show_step(f"Working on todo {todo_id}: {task}")
 
   def show_self_reflection(self, reflection: SelfReflection):
@@ -621,9 +620,9 @@ class TerminalUI:
     bullet = "⏺"
     self.console.print(f"[white]{bullet}[/white] [bright_white]{reflection.current_state}[/bright_white]")
     self.console.print()
-    
+
     # Show the action plan with proper formatting
-    plan_lines = reflection.next_action_plan.split('\n')
+    plan_lines = reflection.next_action_plan.split("\n")
     for i, line in enumerate(plan_lines):
       if line.strip():
         if i == 0:
@@ -745,13 +744,13 @@ class TerminalUI:
       if output:
         output += "\n"
       output += result.stderr.strip()
-    
+
     # Show output with ⎿ symbol
     if output:
       # Truncate very long output
       output_display = output[:1000] + "..." if len(output) > 1000 else output
       lines = output_display.split("\n")
-      
+
       if result.success:
         # Success - show first line with ⎿
         if lines:

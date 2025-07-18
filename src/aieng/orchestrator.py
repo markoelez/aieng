@@ -99,26 +99,31 @@ class AIAgentOrchestrator:
 
         # Step 1: Update Todos - Show current todo status
         self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, current_todo.id, [ct.id for ct in completed_todos])
-        
+
         # Step 2: Self-Reflection - Plan next actions
         self_reflection = await self.agent.self_reflect(current_todo, user_request, file_contexts, completed_todos)
         self.ui.show_self_reflection(self_reflection)
-        
+
         # Step 3: Execute Actions - Process the todo with chain-of-thought
         # Define progress callback to show subtasks as they execute
         first_subtask = True
+
         def progress_callback(event_type, data):
           nonlocal first_subtask
-          if event_type == 'subtask_start':
+          if event_type == "subtask_start":
             if first_subtask:
               self.ui.console.print()  # Add spacing before first subtask
               first_subtask = False
+            else:
+              self.ui.console.print()  # Add spacing between subtasks
             self.ui.show_step(f"Starting: {data['description']}")
-          elif event_type == 'subtask_complete':
-            subtask = data['subtask']
-            edit = data['edit']
+            self.ui.console.print()  # Add spacing after "Starting:" before thinking
+          elif event_type == "subtask_complete":
+            subtask = data["subtask"]
+            edit = data["edit"]
+            self.ui.console.print()  # Add spacing before "Generated:"
             self.ui.show_step(f"Generated: {subtask['description']}", is_final=True)
-            
+
             # Show the diff immediately after generation
             edit_obj = FileEdit(
               file_path=edit.get("file_path", ""),
@@ -130,10 +135,11 @@ class AIAgentOrchestrator:
             is_new_file = not edit_obj.old_content.strip()
             self.ui.show_diff_header(edit_obj.file_path, edit_obj.description, is_new_file)
             self.ui.show_diff_content(diff_preview)
-            
+
             # Apply the edit immediately with default acceptance
             auto_accept = hasattr(self, "config") and self.config.get("auto_accept", False)
             if auto_accept:
+              self.ui.console.print()  # Add spacing before "Applying Changes"
               self.ui.show_applying_changes()
               results = self.diff_processor.apply_edits([edit_obj])
               if results[0].success:
@@ -145,14 +151,17 @@ class AIAgentOrchestrator:
               # Ask for confirmation for this file
               should_apply, _, _ = self.ui.confirm_single_file_change(edit_obj.file_path, auto_accept=False)
               if should_apply:
+                self.ui.console.print()  # Add spacing before "Applying Changes"
                 self.ui.show_applying_changes()
                 results = self.diff_processor.apply_edits([edit_obj])
                 if results[0].success:
                   all_edits.append(edit_obj)
                   self.ui.show_success(1)
+                  self.ui.console.print()  # Add spacing after successful edit
                 else:
                   self.ui.show_error(f"Failed to apply edit to {edit_obj.file_path}: {results[0].error}")
-        
+                  self.ui.console.print()  # Add spacing after error
+
         # Use progressive processing
         todo_result = await self.agent.process_todo_progressive(
           current_todo, user_request, file_contexts, completed_todos, progress_callback

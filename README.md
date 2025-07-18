@@ -79,5 +79,5 @@ AIENG is model agnostic. To switch models:
 
 ## TODOs
 
-- [ ] Add self-reflection between actions
-- [ ] Ensure actions render progressively rather than in batch
+- Improve agent narration between tasks
+- Reduce redundant actions

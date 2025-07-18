@@ -62,7 +62,7 @@ class CommandResult(BaseModel):
 
 class SelfReflection(BaseModel):
   """Self-reflection analysis for planning next actions."""
-  
+
   current_state: str  # Analysis of current progress
   next_action_plan: str  # Detailed plan for next actions
   action_type: str  # "edits", "commands", "searches", or "mixed"
