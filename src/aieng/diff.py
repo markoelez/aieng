@@ -118,6 +118,12 @@ class DiffProcessor:
     file_path = self.project_root / edit.file_path
 
     try:
+      # Check if this is a directory creation (path ends with /)
+      if edit.file_path.endswith('/'):
+        # Create directory
+        file_path.mkdir(parents=True, exist_ok=True)
+        return DiffResult(True)
+      
       # If old_content is empty, this is a new file creation
       if not edit.old_content.strip():
         # Ensure parent directories exist

@@ -14,7 +14,7 @@ from rich.prompt import Prompt, Confirm
 from rich.syntax import Syntax
 from rich.console import Console
 
-from .models import FileEdit
+from .models import FileEdit, SelfReflection
 
 
 class TerminalUI:
@@ -368,6 +368,11 @@ class TerminalUI:
     self.show_step("Generating Response")
     self.console.print()  # Add spacing after step
 
+  def show_generating_edits(self, todo_id: str):
+    """Show when edits are being generated for a todo"""
+    self.show_step(f"Generating edits for todo {todo_id}")
+    self.console.print()  # Add spacing after step
+
   def show_search_header(self, query: str, search_description: str):
     """Show search in Claude Code style"""
     self.console.print()
@@ -522,14 +527,40 @@ class TerminalUI:
       return (True, auto_accept_enabled)
     return (False, False)
 
+  def confirm_single_file_change(self, file_path: str, auto_accept: bool = False) -> tuple[bool, bool, bool]:
+    """
+    Confirm changes for a single file.
+    Returns (should_apply, continue_with_remaining, auto_accept_enabled)
+    """
+    self.console.print()
+    if auto_accept:
+      self.console.print(f"[bright_white]Auto-accepting changes to {file_path}[/bright_white]")
+      return (True, True, False)  # Apply changes, continue, no change to auto-accept
+    
+    self.console.print(f"[bright_white]Apply changes to {file_path}?[/bright_white]")
+    self.console.print("[bright_white]1. Yes, apply this file[/bright_white]")
+    self.console.print("[bright_white]2. No, skip this file[/bright_white]")
+    self.console.print("[bright_white]3. No, skip all remaining files[/bright_white]")
+    choice = Prompt.ask("Enter your choice (1-3)", choices=["1", "2", "3"], default="2")
+    
+    if choice == "1":
+      # Only ask about auto-accept on the first file approval
+      self.console.print("[bright_white]Enable auto-accept for remaining files?[/bright_white]")
+      self.console.print("[bright_white]1. Yes, auto-accept remaining[/bright_white]")
+      self.console.print("[bright_white]2. No, ask for each file[/bright_white]")
+      auto_choice = Prompt.ask("Enter your choice (1-2)", choices=["1", "2"], default="2")
+      auto_accept_enabled = auto_choice == "1"
+      return (True, True, auto_accept_enabled)
+    elif choice == "2":
+      return (False, True, False)  # Skip this file, continue with others
+    else:  # choice == "3"
+      return (False, False, False)  # Skip all remaining files
+
   def show_applying_changes(self):
     self.show_step("Applying Changes")
-    self.console.print()  # Add spacing after step
 
   def show_success(self, num_edits: int):
-    self.console.print()
     self.show_step(f"Successfully applied {num_edits} edit(s)", is_final=True)
-    self.console.print()  # Add spacing after success
 
   def show_generating_summary(self):
     self.show_step("Generating Summary")
@@ -581,8 +612,25 @@ class TerminalUI:
     self.console.print()  # Add spacing after todo plan
 
   def show_processing_todo(self, todo_id: int, task: str):
+    self.console.print()  # Add spacing before new todo
     self.show_step(f"Working on todo {todo_id}: {task}")
-    self.console.print()  # Add spacing after step
+
+  def show_self_reflection(self, reflection: SelfReflection):
+    """Show self-reflection in Claude Code style"""
+    self.console.print()
+    bullet = "⏺"
+    self.console.print(f"[white]{bullet}[/white] [bright_white]{reflection.current_state}[/bright_white]")
+    self.console.print()
+    
+    # Show the action plan with proper formatting
+    plan_lines = reflection.next_action_plan.split('\n')
+    for i, line in enumerate(plan_lines):
+      if line.strip():
+        if i == 0:
+          self.console.print(f"[white]{bullet}[/white] [bright_white]{line.strip()}[/bright_white]")
+        else:
+          self.console.print(f"  [white]{line.strip()}[/white]")
+    self.console.print()  # Add spacing after self-reflection
 
   def show_todo_thinking(self, thinking: str):
     # Show truncated thinking process
@@ -677,42 +725,49 @@ class TerminalUI:
     self.console.print()  # Add spacing after todo updates
 
   def show_command_execution(self, command: str):
-    """Show that a command is being executed"""
-    self.show_step("Bash")
-    self.console.print(f"  [white]Running: {command}[/white]")
+    """Show command execution in Claude Code style"""
+    self.console.print()
+    bullet = "⏺"
+    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Bash[/bold bright_white]([bright_white]{command}[/bright_white])")
 
   def show_command_result(self, result):
-    """Show the result of a command execution"""
+    """Show command result in Claude Code style"""
     from .agent import CommandResult
 
     if not isinstance(result, CommandResult):
       return
 
-    self.console.print()
-    if result.success:
-      self.console.print(f"[#60875F]●[/#60875F] [bright_white]Command completed (exit code: {result.exit_code})[/bright_white]")
-    else:
-      self.console.print(f"[red]●[/red] [bright_white]Command failed (exit code: {result.exit_code})[/bright_white]")
-
+    # Combine stdout and stderr for display
+    output = ""
     if result.stdout.strip():
-      self.console.print("  [white]Output:[/white]")
-      # Truncate very long output
-      stdout_display = result.stdout[:1000] + "..." if len(result.stdout) > 1000 else result.stdout
-      for line in stdout_display.strip().split("\n"):
-        self.console.print(f"    [white]{line}[/white]")
-
+      output = result.stdout.strip()
     if result.stderr.strip():
-      # Show stderr with appropriate labeling based on command success
+      if output:
+        output += "\n"
+      output += result.stderr.strip()
+    
+    # Show output with ⎿ symbol
+    if output:
+      # Truncate very long output
+      output_display = output[:1000] + "..." if len(output) > 1000 else output
+      lines = output_display.split("\n")
+      
       if result.success:
-        self.console.print("  [white]Output:[/white]")
-        stderr_display = result.stderr[:500] + "..." if len(result.stderr) > 500 else result.stderr
-        for line in stderr_display.strip().split("\n"):
-          self.console.print(f"    [white]{line}[/white]")
+        # Success - show first line with ⎿
+        if lines:
+          self.console.print(f"  [white]⎿[/white]  [white]{lines[0]}[/white]")
+          # Show remaining lines aligned
+          for line in lines[1:]:
+            self.console.print(f"     [white]{line}[/white]")
       else:
-        self.console.print("  [white]Error output:[/white]")
-        stderr_display = result.stderr[:500] + "..." if len(result.stderr) > 500 else result.stderr
-        for line in stderr_display.strip().split("\n"):
-          self.console.print(f"    [red]{line}[/red]")
+        # Error - show with red coloring
+        self.console.print(f"  [white]⎿[/white]  [red]Error: {result.stderr.strip() if result.stderr.strip() else 'Command failed'}[/red]")
+    else:
+      # No output
+      if result.success:
+        self.console.print(f"  [white]⎿[/white]  [white](no output)[/white]")
+      else:
+        self.console.print(f"  [white]⎿[/white]  [red]Error: exit code {result.exit_code}[/red]")
 
     self.console.print()  # Add spacing after command result
 

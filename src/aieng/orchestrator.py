@@ -1,11 +1,12 @@
 from typing import List
+import time
 
 from rich.prompt import Confirm
 
 from .ui import TerminalUI
 from .diff import DiffProcessor
 from .agent import Agent
-from .models import FileEdit
+from .models import FileEdit, SelfReflection
 from .context import FileContextManager
 
 
@@ -75,9 +76,6 @@ class AIAgentOrchestrator:
       first_ready_todos = [todo for todo in todo_plan.todos if not todo.dependencies]
       first_todo_id = first_ready_todos[0].id if first_ready_todos else todo_plan.todos[0].id
 
-      # Show todo plan with first task marked as current
-      self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, first_todo_id, [])
-
       # Process todos sequentially with dependency handling
       completed_todos = []
       all_edits = []
@@ -99,8 +97,66 @@ class AIAgentOrchestrator:
 
         self.ui.show_processing_todo(current_todo.id, current_todo.task)
 
-        # Process the todo with chain-of-thought
-        todo_result = await self.agent.process_todo(current_todo, user_request, file_contexts, completed_todos)
+        # Step 1: Update Todos - Show current todo status
+        self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, current_todo.id, [ct.id for ct in completed_todos])
+        
+        # Step 2: Self-Reflection - Plan next actions
+        self_reflection = await self.agent.self_reflect(current_todo, user_request, file_contexts, completed_todos)
+        self.ui.show_self_reflection(self_reflection)
+        
+        # Step 3: Execute Actions - Process the todo with chain-of-thought
+        # Define progress callback to show subtasks as they execute
+        first_subtask = True
+        def progress_callback(event_type, data):
+          nonlocal first_subtask
+          if event_type == 'subtask_start':
+            if first_subtask:
+              self.ui.console.print()  # Add spacing before first subtask
+              first_subtask = False
+            self.ui.show_step(f"Starting: {data['description']}")
+          elif event_type == 'subtask_complete':
+            subtask = data['subtask']
+            edit = data['edit']
+            self.ui.show_step(f"Generated: {subtask['description']}", is_final=True)
+            
+            # Show the diff immediately after generation
+            edit_obj = FileEdit(
+              file_path=edit.get("file_path", ""),
+              old_content=edit.get("old_content", ""),
+              new_content=edit.get("new_content", ""),
+              description=edit.get("description", ""),
+            )
+            diff_preview = self.diff_processor.preview_edits([edit_obj])[0]
+            is_new_file = not edit_obj.old_content.strip()
+            self.ui.show_diff_header(edit_obj.file_path, edit_obj.description, is_new_file)
+            self.ui.show_diff_content(diff_preview)
+            
+            # Apply the edit immediately with default acceptance
+            auto_accept = hasattr(self, "config") and self.config.get("auto_accept", False)
+            if auto_accept:
+              self.ui.show_applying_changes()
+              results = self.diff_processor.apply_edits([edit_obj])
+              if results[0].success:
+                all_edits.append(edit_obj)
+                self.ui.show_success(1)
+              else:
+                self.ui.show_error(f"Failed to apply edit to {edit_obj.file_path}: {results[0].error}")
+            else:
+              # Ask for confirmation for this file
+              should_apply, _, _ = self.ui.confirm_single_file_change(edit_obj.file_path, auto_accept=False)
+              if should_apply:
+                self.ui.show_applying_changes()
+                results = self.diff_processor.apply_edits([edit_obj])
+                if results[0].success:
+                  all_edits.append(edit_obj)
+                  self.ui.show_success(1)
+                else:
+                  self.ui.show_error(f"Failed to apply edit to {edit_obj.file_path}: {results[0].error}")
+        
+        # Use progressive processing
+        todo_result = await self.agent.process_todo_progressive(
+          current_todo, user_request, file_contexts, completed_todos, progress_callback
+        )
 
         # Show the thinking process
         self.ui.show_todo_thinking(todo_result.thinking)
@@ -137,138 +193,20 @@ class AIAgentOrchestrator:
             # Show search results
             self.ui.show_multiple_searches(search_results)
 
-        # Convert edits and collect them
-        if todo_result.edits:
-          edits = []
-          for edit_data in todo_result.edits:
-            edit = FileEdit(
-              file_path=edit_data.get("file_path", ""),
-              old_content=edit_data.get("old_content", ""),
-              new_content=edit_data.get("new_content", ""),
-              description=edit_data.get("description", f"Edit for todo {current_todo.id}"),
-            )
-            edits.append(edit)
-
-          if edits:
-            # Show diffs for this todo
-            diff_previews = self.diff_processor.preview_edits(edits)
-            self.ui.show_multiple_diffs(diff_previews, edits)
-
-            # Get user confirmation
-            auto_accept = hasattr(self, "config") and self.config.get("auto_accept", False)
-            should_apply, auto_accept_enabled = self.ui.confirm_changes(auto_accept=auto_accept)
-
-            # Update config if auto-accept was enabled
-            if auto_accept_enabled:
-              self.config["auto_accept"] = True
-              self.save_config()
-
-            if should_apply:
-              # Apply edits for this todo
-              self.ui.show_applying_changes()
-              results = self.diff_processor.apply_edits(edits)
-
-              successful_count = sum(1 for result in results if result.success)
-              if successful_count == len(results):
-                all_edits.extend(edits)
-                self.ui.show_todo_completion(current_todo.id, True)
-                completed_todos.append(current_todo)
-
-                # Show updated todo list
-                completed_ids = [ct.id for ct in completed_todos]
-                # Find next todo that will be worked on
-                next_todo_id = None
-                if remaining_todos:
-                  next_ready = [todo for todo in remaining_todos if all(dep_id in completed_ids for dep_id in todo.dependencies)]
-                  if next_ready:
-                    next_todo_id = next_ready[0].id
-                  elif remaining_todos:
-                    next_todo_id = remaining_todos[0].id
-                self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, next_todo_id, completed_ids)
-              else:
-                first_failure = next(result for result in results if not result.success)
-                self.ui.show_error(f"Failed to apply edits for todo {current_todo.id}: {first_failure.error}")
-
-                # Try to reprocess the todo with a hint about the error
-                self.ui.show_step(f"Retrying todo {current_todo.id} with error context")
-
-                # Add error context to help the LLM fix the issue
-                error_context = f"Previous attempt failed with error: {first_failure.error}. Please use 'REWRITE_ENTIRE_FILE' for old_content when modifying existing files."
-
-                try:
-                  retry_result = await self.agent.process_todo(
-                    current_todo, f"{user_request}\n\nError context: {error_context}", file_contexts, completed_todos
-                  )
-
-                  # Execute commands in retry if any
-                  if retry_result.commands:
-                    for cmd_data in retry_result.commands:
-                      command = cmd_data.get("command", "")
-                      if command:
-                        await self.agent.execute_command(command)
-
-                  if retry_result.edits:
-                    retry_edits = []
-                    for edit_data in retry_result.edits:
-                      edit = FileEdit(
-                        file_path=edit_data.get("file_path", ""),
-                        old_content=edit_data.get("old_content", ""),
-                        new_content=edit_data.get("new_content", ""),
-                        description=edit_data.get("description", f"Retry edit for todo {current_todo.id}"),
-                      )
-                      retry_edits.append(edit)
-
-                    # Try applying the retry edits
-                    retry_results = self.diff_processor.apply_edits(retry_edits)
-                    retry_successful = sum(1 for r in retry_results if r.success)
-
-                    if retry_successful == len(retry_results):
-                      all_edits.extend(retry_edits)
-                      self.ui.show_todo_completion(current_todo.id, True)
-                      completed_todos.append(current_todo)
-
-                      # Show updated todo list
-                      completed_ids = [ct.id for ct in completed_todos]
-                      # Find next todo that will be worked on
-                      next_todo_id = None
-                      if remaining_todos:
-                        next_ready = [todo for todo in remaining_todos if all(dep_id in completed_ids for dep_id in todo.dependencies)]
-                        if next_ready:
-                          next_todo_id = next_ready[0].id
-                        elif remaining_todos:
-                          next_todo_id = remaining_todos[0].id
-                      self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, next_todo_id, completed_ids)
-                    else:
-                      self.ui.show_todo_completion(current_todo.id, False, "Retry also failed, skipping")
-                      continue
-                  else:
-                    self.ui.show_todo_completion(current_todo.id, False, "No retry edits generated, skipping")
-                    continue
-
-                except Exception as retry_error:
-                  self.ui.show_error(f"Retry failed: {retry_error}")
-                  self.ui.show_todo_completion(current_todo.id, False, "Retry failed, skipping")
-                  continue
-            else:
-              self.ui.show_rejection()
-              return False
+        # Edits were already applied during progressive generation in the callback
+        # Just mark the todo as completed based on whether we have any edits
+        if all_edits:
+          self.ui.show_todo_completion(current_todo.id, True)
+          completed_todos.append(current_todo)
+        elif todo_result.completed:
+          # Todo was completed without edits (e.g., just commands)
+          self.ui.show_todo_completion(current_todo.id, True)
+          completed_todos.append(current_todo)
         else:
           # No edits needed for this todo
           self.ui.show_todo_completion(current_todo.id, todo_result.completed, todo_result.next_steps)
           if todo_result.completed:
             completed_todos.append(current_todo)
-
-            # Show updated todo list
-            completed_ids = [ct.id for ct in completed_todos]
-            # Find next todo that will be worked on
-            next_todo_id = None
-            if remaining_todos:
-              next_ready = [todo for todo in remaining_todos if all(dep_id in completed_ids for dep_id in todo.dependencies)]
-              if next_ready:
-                next_todo_id = next_ready[0].id
-              elif remaining_todos:
-                next_todo_id = remaining_todos[0].id
-            self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, next_todo_id, completed_ids)
 
       # Generate final summary only if edits were applied
       if all_edits:

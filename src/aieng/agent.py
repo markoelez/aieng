@@ -10,6 +10,7 @@ from .tools import (
   TodoProcessor,
   EditSummarizer,
   CommandExecutor,
+  SubtaskExecutor,
 )
 from .utils import parse_llm_json
 from .models import (
@@ -20,6 +21,7 @@ from .models import (
   LLMResponse,
   SearchResult,
   CommandResult,
+  SelfReflection,
 )
 
 
@@ -37,6 +39,7 @@ class Agent:
     self.todo_planner = TodoPlanner(self.llm_client)
     self.todo_processor = TodoProcessor(self.llm_client)
     self.edit_summarizer = EditSummarizer(self.llm_client)
+    self.subtask_executor = SubtaskExecutor(self.llm_client)
 
   async def execute_command(self, command: str, timeout: int = 30) -> CommandResult:
     """Execute a terminal command."""
@@ -80,6 +83,72 @@ class Agent:
     result = await self.todo_planner.execute(user_request=user_request, file_contexts=file_contexts)
     return result.data
 
+  async def self_reflect(
+    self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], completed_todos: List[Todo] = None
+  ) -> SelfReflection:
+    """Perform self-reflection to plan next actions."""
+    if completed_todos is None:
+      completed_todos = []
+    
+    completed_context = ""
+    if completed_todos:
+      completed_context = "Previously completed todos:\n" + "\n".join([f"- {t.task}" for t in completed_todos]) + "\n\n"
+    
+    prompt = f"""
+You are an AI agent thinking step-by-step about the next actions for a todo item.
+
+Original user request: {user_request}
+Current todo: {todo.task}
+Reasoning: {todo.reasoning}
+
+{completed_context}
+
+Think step-by-step about what you need to do next and express it as deliberate action planning.
+
+Respond with JSON containing:
+- "current_state": A concise action statement starting with "Now I will..." (e.g., "Now I will create the test files", "Now I will implement the feature")
+- "next_action_plan": A brief description of the specific actions you'll take, formatted as a clear action sequence
+- "action_type": Primary type of actions needed - "edits", "commands", "searches", or "mixed"  
+- "confidence_level": Your confidence in the plan - "high", "medium", or "low"
+
+Keep both statements concise and action-oriented. Focus on concrete actions like creating, modifying, or implementing code.
+"""
+    
+    messages = [
+      {
+        "role": "system",
+        "content": "You are an AI assistant that performs self-reflection and action planning. Respond ONLY with valid JSON."
+      },
+      {"role": "user", "content": prompt}
+    ]
+    
+    result = await self.llm_client.execute(messages, response_format={"type": "json_object"})
+    
+    if not result.success:
+      # Return a default reflection on error
+      return SelfReflection(
+        current_state="Error analyzing state",
+        next_action_plan="Retry analysis",
+        action_type="mixed",
+        confidence_level="low"
+      )
+    
+    try:
+      parsed = parse_llm_json(result.data)
+      return SelfReflection(
+        current_state=str(parsed.get("current_state", "")),
+        next_action_plan=str(parsed.get("next_action_plan", "")),
+        action_type=str(parsed.get("action_type", "mixed")),
+        confidence_level=str(parsed.get("confidence_level", "medium"))
+      )
+    except Exception:
+      return SelfReflection(
+        current_state="Failed to parse reflection",
+        next_action_plan="Proceed with standard todo processing",
+        action_type="mixed",
+        confidence_level="low"
+      )
+
   async def process_todo(
     self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], completed_todos: List[Todo] = None
   ) -> TodoResult:
@@ -88,6 +157,59 @@ class Agent:
       todo=todo, user_request=user_request, file_contexts=file_contexts, completed_todos=completed_todos or []
     )
     return result.data
+
+  async def process_todo_progressive(
+    self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], 
+    completed_todos: List[Todo] = None, progress_callback: Callable = None
+  ) -> TodoResult:
+    """Process a single todo progressively by breaking it into subtasks."""
+    # First, get subtasks for this todo
+    subtasks_result = await self.subtask_executor.plan_subtasks(todo, user_request, file_contexts)
+    
+    if not subtasks_result.success:
+      # Fall back to regular processing
+      return await self.process_todo(todo, user_request, file_contexts, completed_todos)
+    
+    subtasks = subtasks_result.data
+    if not subtasks:
+      # No subtasks, fall back to regular processing
+      return await self.process_todo(todo, user_request, file_contexts, completed_todos)
+    
+    # Process each subtask sequentially
+    edits = []
+    completed_subtasks = []
+    
+    for subtask in sorted(subtasks, key=lambda x: x.get('order', 0)):
+      # Notify about subtask start
+      if progress_callback:
+        progress_callback('subtask_start', subtask)
+      
+      # Execute the subtask
+      try:
+        edit_result = await self.subtask_executor.execute_subtask(
+          subtask, todo, user_request, file_contexts, completed_subtasks
+        )
+      except Exception as e:
+        # Create a failed result
+        from .tools.base import ToolResult
+        edit_result = ToolResult(success=False, error=str(e))
+      
+      if edit_result.success and edit_result.data:
+        edit = edit_result.data
+        edits.append(edit)
+        completed_subtasks.append(subtask)
+        
+        # Notify about subtask completion with the edit
+        if progress_callback:
+          progress_callback('subtask_complete', {'subtask': subtask, 'edit': edit})
+    
+    # Return a TodoResult with all the edits
+    return TodoResult(
+      thinking=f"Completed {len(edits)} subtasks for: {todo.task}",
+      edits=edits,
+      completed=len(edits) == len(subtasks),
+      next_steps="" if len(edits) == len(subtasks) else f"Failed to complete {len(subtasks) - len(edits)} subtasks"
+    )
 
   async def generate_edit_summary(self, applied_edits: List[FileEdit], user_request: str) -> str:
     """Generate a summary of applied edits."""

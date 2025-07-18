@@ -6,6 +6,7 @@ from .llm_client import LLMClient
 from .todo_planner import TodoPlanner
 from .todo_processor import TodoProcessor
 from .edit_summarizer import EditSummarizer
+from .subtask_executor import SubtaskExecutor
 
 __all__ = [
   "Tool",
@@ -15,4 +16,5 @@ __all__ = [
   "TodoPlanner",
   "TodoProcessor",
   "EditSummarizer",
+  "SubtaskExecutor",
 ]
