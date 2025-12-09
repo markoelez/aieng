@@ -1,6 +1,6 @@
 # AIENG
 
-A terminal-based, model-agnostic AI coding assistant, inspired by Claude Code
+A terminal-based, model-agnostic AI coding assistant, inspired by GPT Codex
 
 ## Installation
 
@@ -40,7 +40,7 @@ If you don't have uv installed, get it from [uv installation guide](https://docs
    
    Edit `.env` and add your API key:
    ```
-   API_KEY=your_api_key_here
+   OPENAI_API_KEY=your_api_key_here
    ```
 
 5. **Run AIENG:**
@@ -63,18 +63,17 @@ AIENG is model agnostic. To switch models:
 2. **Edit `aieng.toml`** in your project directory:
    ```toml
    # Model Configuration
-   model = "grok-4"  # Change to your desired model
-   api_base_url = "https://api.x.ai/v1"  # Change to your provider's API endpoint
+   model = "gpt-5.1-codex"  # Default GPT Codex model
+   api_base_url = "https://api.openai.com/v1"  # OpenAI GPT Codex endpoint
    
    # Examples for different providers:
-   # OpenAI: api_base_url = "https://api.openai.com/v1"
    # Anthropic: api_base_url = "https://api.anthropic.com/v1"
    # Local: api_base_url = "http://localhost:11434/v1"
    ```
 
 3. **Update API key** in `.env`:
    ```bash
-   API_KEY=your_provider_api_key_here
+   OPENAI_API_KEY=your_provider_api_key_here
    ```
 
 ## TODOs

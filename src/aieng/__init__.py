@@ -2,6 +2,7 @@ import asyncio
 
 import click
 
+from .config import DEFAULT_MODEL
 from .orchestrator import AIAgentOrchestrator
 
 
@@ -15,5 +16,5 @@ def main(project_root: str):
   gathering relevant file context, and generating structured diffs
   that you can review and approve.
   """
-  orchestrator = AIAgentOrchestrator(model="grok-4", project_root=project_root)
+  orchestrator = AIAgentOrchestrator(model=DEFAULT_MODEL, project_root=project_root)
   asyncio.run(orchestrator.run_interactive_session())

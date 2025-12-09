@@ -28,4 +28,10 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "ruff>=0.12.3",
+    "pytest>=8.0.0",
 ]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["."]

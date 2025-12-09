@@ -14,6 +14,7 @@ from rich.prompt import Prompt, Confirm
 from rich.syntax import Syntax
 from rich.console import Console
 
+from .config import DEFAULT_MODEL, API_KEY_ENV_VAR, SUPPORTED_MODELS, DEFAULT_API_BASE_URL
 from .models import FileEdit, SelfReflection
 
 
@@ -43,9 +44,10 @@ class TerminalUI:
 
   def _show_command_menu(self):
     """Show the command menu under the input box"""
+    model_list = ", ".join(SUPPORTED_MODELS)
     commands = [
       ("/init", "Create a aieng.toml file with configuration settings"),
-      ("/model", "Switch between available AI models (grok-3, grok-4)"),
+      ("/model", f"Switch between available GPT Codex models ({model_list})"),
       ("/auto", "Toggle auto-accept edits on/off"),
       ("/help", "Show help and available commands"),
       ("/exit", "Exit the AIENG tool"),
@@ -346,7 +348,7 @@ class TerminalUI:
           break
 
   def show_step(self, step_text: str, is_final: bool = False):
-    """Show a streaming step like Claude Code"""
+    """Show a streaming step like GPT Codex"""
     bullet = "●" if not is_final else "●"
     color = "white" if not is_final else "green"
     self.console.print(f"[{color}]{bullet}[/{color}] [bold bright_white]{step_text}[/bold bright_white]")
@@ -374,7 +376,7 @@ class TerminalUI:
     self.console.print()  # Add spacing after step
 
   def show_search_header(self, query: str, search_description: str):
-    """Show search in Claude Code style"""
+    """Show search in GPT Codex style"""
     self.console.print()
     # Custom formatting for Search header - only "Search" is bold
     bullet = "●"
@@ -399,7 +401,7 @@ class TerminalUI:
     self.console.print()  # Add spacing after search results
 
   def show_diff_header(self, file_path: str, edit_description: str, is_new_file: bool = False):
-    """Show diff in Claude Code style"""
+    """Show diff in GPT Codex style"""
     self.console.print()
     # Custom formatting for operation header - only the operation type is bold
     bullet = "⏺"
@@ -413,7 +415,7 @@ class TerminalUI:
     self.console.print(f"  [white]⎿  {edit_description}[/white]")
 
   def show_diff_content(self, diff_text: str):
-    """Show the actual diff content with line numbers and changes in Claude Code style"""
+    """Show the actual diff content with line numbers and changes in GPT Codex style"""
     if not diff_text.strip():
       return
 
@@ -498,7 +500,7 @@ class TerminalUI:
     self.console.print()  # Add spacing after all diffs
 
   def show_summary(self, summary: str, num_edits: int):
-    """Show summary in Claude Code style"""
+    """Show summary in GPT Codex style"""
     self.show_step("Summary")
     self.console.print(f"  [white]Proposed {num_edits} edit(s): {summary}[/white]")
     self.console.print()  # Add spacing after summary
@@ -615,7 +617,7 @@ class TerminalUI:
     self.show_step(f"Working on todo {todo_id}: {task}")
 
   def show_self_reflection(self, reflection: SelfReflection):
-    """Show self-reflection in Claude Code style"""
+    """Show self-reflection in GPT Codex style"""
     self.console.print()
     bullet = "⏺"
     self.console.print(f"[white]{bullet}[/white] [bright_white]{reflection.current_state}[/bright_white]")
@@ -724,13 +726,13 @@ class TerminalUI:
     self.console.print()  # Add spacing after todo updates
 
   def show_command_execution(self, command: str):
-    """Show command execution in Claude Code style"""
+    """Show command execution in GPT Codex style"""
     self.console.print()
     bullet = "⏺"
     self.console.print(f"[white]{bullet}[/white] [bold bright_white]Bash[/bold bright_white]([bright_white]{command}[/bright_white])")
 
   def show_command_result(self, result):
-    """Show command result in Claude Code style"""
+    """Show command result in GPT Codex style"""
     from .agent import CommandResult
 
     if not isinstance(result, CommandResult):
@@ -833,14 +835,14 @@ class TerminalUI:
       return
 
     # Create TOML file with configuration structure
-    toml_content = """# AIENG Configuration File
+    toml_content = f"""# AIENG Configuration File
 # This file stores persistent settings for the AIENG tool
 
 # API Configuration
-api_base_url = "https://api.x.ai/v1"  # API base URL
+api_base_url = "{DEFAULT_API_BASE_URL}"  # API base URL
 
 # Model Configuration
-model = "grok-4"  # Default model (grok-3 or grok-4)
+model = "{DEFAULT_MODEL}"  # Default GPT Codex model
 
 # General Settings
 auto_accept = false  # Auto-accept file edits without confirmation
@@ -850,7 +852,7 @@ auto_accept = false  # Auto-accept file edits without confirmation
       with open(toml_path, "w") as f:
         f.write(toml_content)
       self.console.print(f"[#60875F]● Created aieng.toml[/#60875F]")
-      self.console.print(f"[yellow]● Make sure API_KEY environment variable is set with your API key[/yellow]")
+      self.console.print(f"[yellow]● Set the {API_KEY_ENV_VAR} environment variable with your API key[/yellow]")
     except Exception as e:
       self.console.print(f"[red]● Error creating aieng.toml: {e}[/red]")
 
@@ -860,9 +862,10 @@ auto_accept = false  # Auto-accept file edits without confirmation
     self.console.print("[bold bright_white]Available Commands:[/bold bright_white]")
     self.console.print()
 
+    model_list = ", ".join(SUPPORTED_MODELS)
     commands = [
       ("/init", "Create a aieng.toml file with configuration settings"),
-      ("/model", "Switch between available AI models (grok-3, grok-4)"),
+      ("/model", f"Switch between available GPT Codex models ({model_list})"),
       ("/auto", "Toggle auto-accept edits on/off"),
       ("/help", "Show this help message"),
       ("/exit", "Exit the AIENG tool"),
@@ -890,8 +893,7 @@ auto_accept = false  # Auto-accept file edits without confirmation
     self.console.print("[bold bright_white]Available Models:[/bold bright_white]")
     self.console.print()
 
-    models = ["grok-3", "grok-4"]
-    for i, model in enumerate(models, 1):
+    for i, model in enumerate(SUPPORTED_MODELS, 1):
       self.console.print(f"  [bright_white]{i}. {model}[/bright_white]")
 
     self.console.print()
@@ -899,8 +901,9 @@ auto_accept = false  # Auto-accept file edits without confirmation
     # Get user choice
     while True:
       try:
-        choice = Prompt.ask("Select model (1-2)", choices=["1", "2"])
-        selected_model = models[int(choice) - 1]
+        choices = [str(i) for i in range(1, len(SUPPORTED_MODELS) + 1)]
+        choice = Prompt.ask(f"Select model (1-{len(SUPPORTED_MODELS)})", choices=choices)
+        selected_model = SUPPORTED_MODELS[int(choice) - 1]
         self.console.print(f"[#60875F]● Switched to {selected_model}[/#60875F]")
         return f"__MODEL_CHANGE__{selected_model}"  # Special return value for model change
       except (ValueError, IndexError):

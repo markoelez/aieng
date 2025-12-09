@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from .base import Tool, ToolResult
 from ..utils import parse_llm_json
-from ..models import Todo, TodoPlan
+from ..models import TodoPlan
 from .llm_client import LLMClient
 
 
@@ -87,14 +87,14 @@ REMEMBER: Create tasks that are concrete actions, not broad objectives or tiny d
       result = await self.llm_client.execute(messages, response_format={"type": "json_object"})
 
       if not result.success:
-        return self._create_fallback_plan(user_request, f"LLM call failed: {result.error}")
+        return ToolResult(success=False, error=f"LLM call failed: {result.error}")
 
       try:
         parsed = parse_llm_json(result.data)
 
         # Validate that we have proper structure
         if "todos" not in parsed or not parsed["todos"]:
-          return self._create_fallback_plan(user_request, "No todos in LLM response")
+          return ToolResult(success=False, error="No todos in LLM response")
 
         # Ensure todos have proper structure and aren't just repeating the request
         for i, todo in enumerate(parsed["todos"]):
@@ -103,36 +103,19 @@ REMEMBER: Create tasks that are concrete actions, not broad objectives or tiny d
 
           # Check if the LLM is just repeating the user request or being too vague
           if not task or task == request_lower or len(task.split()) <= 2:  # Very short, likely vague
-            return self._create_fallback_plan(user_request, f"LLM task too vague: '{todo.get('task', '')}'")
+            return ToolResult(success=False, error=f"LLM task too vague: '{todo.get('task', '')}'")
 
         # Check if we have enough strategic todos
         if len(parsed["todos"]) < 2:
-          return self._create_fallback_plan(user_request, "Need more strategic task breakdown")
+          return ToolResult(success=False, error="Need more strategic task breakdown")
 
         todo_plan = TodoPlan(**parsed)
         return ToolResult(success=True, data=todo_plan)
 
       except json.JSONDecodeError as e:
-        return self._create_fallback_plan(user_request, f"JSON decode error: {e}")
+        return ToolResult(success=False, error=f"JSON decode error: {e}")
       except Exception as e:
-        return self._create_fallback_plan(user_request, f"Validation error: {e}")
+        return ToolResult(success=False, error=f"Validation error: {e}")
 
     except Exception as e:
-      return self._create_fallback_plan(user_request, str(e))
-
-  def _create_fallback_plan(self, user_request: str, error: str = None) -> ToolResult:
-    """Create a simple fallback when LLM completely fails."""
-    # Only use this as a last resort - single todo that forces the user to be more specific
-    todos = [
-      Todo(
-        id=1,
-        task=f"Please be more specific: {user_request[:40]}...",
-        reasoning="Need clearer requirements",
-        priority="high",
-        dependencies=[],
-      )
-    ]
-    summary = "Request needs clarification"
-
-    plan = TodoPlan(summary=summary, todos=todos)
-    return ToolResult(success=True, data=plan)
+      return ToolResult(success=False, error=str(e))

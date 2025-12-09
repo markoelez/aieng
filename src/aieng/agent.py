@@ -1,7 +1,6 @@
 """AI Agent for code generation and modification."""
 
 import os
-import json
 from typing import Dict, List, Callable, Optional
 
 from .tools import (
@@ -13,13 +12,13 @@ from .tools import (
   SubtaskExecutor,
 )
 from .utils import parse_llm_json
+from .config import DEFAULT_MODEL
 from .models import (
   Todo,
   FileEdit,
   TodoPlan,
   TodoResult,
   LLMResponse,
-  SearchResult,
   CommandResult,
   SelfReflection,
 )
@@ -28,7 +27,7 @@ from .models import (
 class Agent:
   """Main agent class that coordinates various tools."""
 
-  def __init__(self, model: str = "grok-4", ui_callback: Optional[Callable] = None, project_root: str = ".", config: dict = None):
+  def __init__(self, model: str = DEFAULT_MODEL, ui_callback: Optional[Callable] = None, project_root: str = ".", config: dict = None):
     """Initialize the agent with its tools."""
     self.project_root = os.path.abspath(project_root)
     self.ui_callback = ui_callback
@@ -81,6 +80,8 @@ class Agent:
   async def generate_todo_plan(self, user_request: str, file_contexts: List[Dict[str, str]]) -> TodoPlan:
     """Generate a todo plan for the user request."""
     result = await self.todo_planner.execute(user_request=user_request, file_contexts=file_contexts)
+    if not result.success:
+      raise Exception(f"Todo planning failed: {result.error}")
     return result.data
 
   async def self_reflect(

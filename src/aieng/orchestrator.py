@@ -1,17 +1,17 @@
 from typing import List
-import time
 
 from rich.prompt import Confirm
 
 from .ui import TerminalUI
 from .diff import DiffProcessor
 from .agent import Agent
+from .config import DEFAULT_MODEL, SUPPORTED_MODELS, DEFAULT_API_BASE_URL
 from .models import FileEdit, SelfReflection
 from .context import FileContextManager
 
 
 class AIAgentOrchestrator:
-  def __init__(self, model: str = "grok-4", project_root: str = "."):
+  def __init__(self, model: str = DEFAULT_MODEL, project_root: str = "."):
     self.ui = TerminalUI()
     self.context_manager = FileContextManager(project_root=project_root)
     self.diff_processor = DiffProcessor(project_root=project_root)
@@ -249,7 +249,7 @@ class AIAgentOrchestrator:
     line1_padding = box_width - len(line1_content)
 
     # Line 3: API base URL
-    api_base_url = self.config.get("api_base_url", "https://api.x.ai/v1")
+    api_base_url = self.config.get("api_base_url", DEFAULT_API_BASE_URL)
     line3_content = f"   API: {api_base_url}"
     line3_padding = box_width - len(line3_content)
 
@@ -348,9 +348,8 @@ class AIAgentOrchestrator:
   async def change_model(self, new_model: str):
     """Change the active model and persist to config"""
     # Validate model
-    allowed_models = ["grok-3", "grok-4"]
-    if new_model not in allowed_models:
-      self.ui.console.print(f"[red]Error: Model '{new_model}' not supported. Allowed models: {', '.join(allowed_models)}[/red]")
+    if new_model not in SUPPORTED_MODELS:
+      self.ui.console.print(f"[red]Error: Model '{new_model}' not supported. Allowed models: {', '.join(SUPPORTED_MODELS)}[/red]")
       return
 
     # Update model
