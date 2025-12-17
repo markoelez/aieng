@@ -1,5 +1,7 @@
 # AIENG
 
+[![CI](https://github.com/markoelez/aieng/actions/workflows/ci.yml/badge.svg)](https://github.com/markoelez/aieng/actions/workflows/ci.yml)
+
 A terminal-based, model-agnostic AI coding assistant, inspired by GPT Codex
 
 ## Installation
@@ -97,5 +99,3 @@ AIENG is model agnostic. To switch models:
    uv run ruff format --check .
    uv run ty check
    ```
-
-Every push and pull request is validated by the `CI` GitHub Actions workflow, which runs the same Ruff and Ty steps to keep formatting, linting, and type checking consistent.
