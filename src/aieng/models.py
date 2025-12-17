@@ -1,7 +1,8 @@
 """Shared data models for the AI coding agent."""
 
-from dataclasses import dataclass
 from typing import Dict, List, Optional
+from dataclasses import dataclass
+
 from pydantic import BaseModel, field_validator
 
 

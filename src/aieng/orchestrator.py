@@ -1,12 +1,10 @@
-from typing import List
-
-from rich.prompt import Confirm
+from typing import List, Optional
 
 from .ui import TerminalUI
 from .diff import DiffProcessor
 from .agent import Agent
 from .config import DEFAULT_MODEL, SUPPORTED_MODELS, DEFAULT_API_BASE_URL
-from .models import FileEdit, SelfReflection
+from .models import FileEdit, SearchResult
 from .context import FileContextManager
 
 
@@ -63,7 +61,7 @@ class AIAgentOrchestrator:
     with open(config_path, "wb") as f:
       tomli_w.dump(self.config, f)
 
-  async def process_user_request(self, user_request: str, specific_files: List[str] = None) -> bool:
+  async def process_user_request(self, user_request: str, specific_files: Optional[List[str]] = None) -> bool:
     try:
       # Build context
       file_contexts = self.context_manager.build_context(user_request, specific_files)
@@ -71,10 +69,6 @@ class AIAgentOrchestrator:
 
       # Generate todo plan
       todo_plan = await self.agent.generate_todo_plan(user_request, file_contexts)
-
-      # Find the first todo that will be worked on
-      first_ready_todos = [todo for todo in todo_plan.todos if not todo.dependencies]
-      first_todo_id = first_ready_todos[0].id if first_ready_todos else todo_plan.todos[0].id
 
       # Process todos sequentially with dependency handling
       completed_todos = []
@@ -179,8 +173,6 @@ class AIAgentOrchestrator:
 
         # Execute searches if any
         if todo_result.searches:
-          from .agent import SearchResult
-
           search_results = []
           for search_data in todo_result.searches:
             query = search_data.get("query", "")
@@ -213,7 +205,7 @@ class AIAgentOrchestrator:
           completed_todos.append(current_todo)
         else:
           # No edits needed for this todo
-          self.ui.show_todo_completion(current_todo.id, todo_result.completed, todo_result.next_steps)
+          self.ui.show_todo_completion(current_todo.id, todo_result.completed, todo_result.next_steps or "")
           if todo_result.completed:
             completed_todos.append(current_todo)
 
@@ -357,7 +349,12 @@ class AIAgentOrchestrator:
     self.config["model"] = new_model
 
     # Recreate agent with new model
-    self.agent = Agent(model=new_model, ui_callback=self._ui_callback, project_root=self.context_manager.project_root, config=self.config)
+    self.agent = Agent(
+      model=new_model,
+      ui_callback=self._ui_callback,
+      project_root=str(self.context_manager.project_root),
+      config=self.config,
+    )
 
     # Save config
     self.save_config()
@@ -377,5 +374,5 @@ class AIAgentOrchestrator:
     state_text = "enabled" if new_state else "disabled"
     self.ui.console.print(f"[#60875F]● Auto-accept setting saved: {state_text}[/#60875F]")
 
-  async def run_single_request(self, request: str, files: List[str] = None) -> bool:
+  async def run_single_request(self, request: str, files: Optional[List[str]] = None) -> bool:
     return await self.process_user_request(request, files)

@@ -1,17 +1,12 @@
 import sys
 import time
-import signal
-import asyncio
-import readline
 import threading
-from typing import List
+from typing import List, Optional
 
 from rich.live import Live
 from rich.rule import Rule
 from rich.text import Text
-from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
-from rich.syntax import Syntax
+from rich.prompt import Prompt
 from rich.console import Console
 
 from .config import DEFAULT_MODEL, API_KEY_ENV_VAR, SUPPORTED_MODELS, DEFAULT_API_BASE_URL
@@ -59,7 +54,7 @@ class TerminalUI:
       self.console.print(f"  [bright_white]{cmd:<16}[/bright_white] [white]{description}[/white]")
     self.commands_visible = True
 
-  def get_user_request(self) -> str:
+  def get_user_request(self) -> Optional[str]:
     while True:
       # Get terminal width
       terminal_width = self.console.size.width
@@ -364,7 +359,8 @@ class TerminalUI:
 
   def show_reading_file(self, file_path: str, description: str = ""):
     """Show when a file is being read"""
-    self.show_read_header(file_path, description or "Reading file contents")
+    message = description or "Reading file contents"
+    self.show_step(f"Reading {file_path}: {message}")
 
   def show_generating_response(self):
     self.show_step("Generating Response")

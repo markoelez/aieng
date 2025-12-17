@@ -2,7 +2,7 @@
 
 import os
 import asyncio
-from typing import Dict, List, Callable, Optional
+from typing import Any, Dict, List, Callable, Optional, cast
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -16,7 +16,12 @@ load_dotenv()
 class LLMClient(Tool):
   """Tool for interacting with LLM APIs."""
 
-  def __init__(self, model: str = DEFAULT_MODEL, config: Optional[Dict] = None, ui_callback: Optional[Callable] = None):
+  def __init__(
+    self,
+    model: str = DEFAULT_MODEL,
+    config: Optional[Dict[str, Any]] = None,
+    ui_callback: Optional[Callable[..., None]] = None,
+  ):
     super().__init__(ui_callback)
 
     if config is None:
@@ -31,7 +36,11 @@ class LLMClient(Tool):
     self.model = model
 
   async def execute(
-    self, messages: List[Dict], response_format: Optional[Dict] = None, max_tokens: Optional[int] = None, max_retries: int = 3
+    self,
+    messages: List[Dict[str, Any]],
+    response_format: Optional[Dict[str, Any]] = None,
+    max_tokens: Optional[int] = None,
+    max_retries: int = 3,
   ) -> ToolResult:
     """Execute LLM request with retry logic."""
     last_error = None
@@ -50,7 +59,7 @@ class LLMClient(Tool):
           if max_tokens:
             kwargs["max_output_tokens"] = max_tokens
 
-          response = self.client.responses.create(**kwargs)
+          response = self.client.responses.create(**cast(Dict[str, Any], kwargs))
 
           if attempt > 0:
             self._notify_ui("show_llm_retry_success", attempt + 1)
@@ -77,7 +86,7 @@ class LLMClient(Tool):
     fallback_error = str(last_error) if last_error else "LLM request failed without a response"
     return ToolResult(success=False, error=fallback_error)
 
-  def _prepare_messages(self, messages: List[Dict], response_format: Optional[Dict]) -> List[Dict]:
+  def _prepare_messages(self, messages: List[Dict[str, Any]], response_format: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Return a copy of messages with additional instructions if needed."""
     if not response_format:
       return list(messages)
@@ -97,7 +106,7 @@ class LLMClient(Tool):
     # Insert the instruction before the user content to reinforce formatting
     return [json_instruction] + list(messages)
 
-  def _extract_response_text(self, response) -> str:
+  def _extract_response_text(self, response: Any) -> str:
     """Extract text content from an OpenAI responses API result."""
     if response is None:
       return ""
@@ -144,7 +153,7 @@ class LLMClient(Tool):
 
     return ""
 
-  def _extract_text_value(self, obj) -> str:
+  def _extract_text_value(self, obj: Any) -> str:
     """Best-effort extraction of textual content from response objects."""
     if obj is None:
       return ""

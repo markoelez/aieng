@@ -1,5 +1,5 @@
 import fnmatch
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pathlib import Path
 
 import git
@@ -148,7 +148,7 @@ class FileContextManager:
     except:
       return {"error": "Not a git repository or git not available"}
 
-  def build_context(self, user_request: str, specific_files: List[str] = None) -> List[Dict[str, str]]:
+  def build_context(self, user_request: str, specific_files: Optional[List[str]] = None) -> List[Dict[str, str]]:
     if specific_files:
       file_paths = [self.project_root / file for file in specific_files]
       file_paths = [p for p in file_paths if p.exists()]

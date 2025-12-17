@@ -80,3 +80,22 @@ AIENG is model agnostic. To switch models:
 
 - Improve agent narration between tasks
 - Reduce redundant actions
+
+## Development Workflow
+
+1. **Install dev dependencies**
+   ```bash
+   uv sync --dev
+   ```
+2. **Install git hooks (Ruff formatting + Ty type checking)**
+   ```bash
+   uv run pre-commit install
+   ```
+3. **Run checks locally**
+   ```bash
+   uv run ruff check .
+   uv run ruff format --check .
+   uv run ty check
+   ```
+
+Every push and pull request is validated by the `CI` GitHub Actions workflow, which runs the same Ruff and Ty steps to keep formatting, linting, and type checking consistent.

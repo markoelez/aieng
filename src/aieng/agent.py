@@ -1,7 +1,7 @@
 """AI Agent for code generation and modification."""
 
 import os
-from typing import Dict, List, Callable, Optional
+from typing import Any, Dict, List, Callable, Optional
 
 from .tools import (
   LLMClient,
@@ -27,7 +27,13 @@ from .models import (
 class Agent:
   """Main agent class that coordinates various tools."""
 
-  def __init__(self, model: str = DEFAULT_MODEL, ui_callback: Optional[Callable] = None, project_root: str = ".", config: dict = None):
+  def __init__(
+    self,
+    model: str = DEFAULT_MODEL,
+    ui_callback: Optional[Callable[..., None]] = None,
+    project_root: str = ".",
+    config: Optional[Dict[str, Any]] = None,
+  ):
     """Initialize the agent with its tools."""
     self.project_root = os.path.abspath(project_root)
     self.ui_callback = ui_callback
@@ -85,7 +91,11 @@ class Agent:
     return result.data
 
   async def self_reflect(
-    self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], completed_todos: List[Todo] = None
+    self,
+    todo: Todo,
+    user_request: str,
+    file_contexts: List[Dict[str, str]],
+    completed_todos: Optional[List[Todo]] = None,
   ) -> SelfReflection:
     """Perform self-reflection to plan next actions."""
     if completed_todos is None:
@@ -148,7 +158,11 @@ Keep both statements concise and action-oriented. Focus on concrete actions like
       )
 
   async def process_todo(
-    self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], completed_todos: List[Todo] = None
+    self,
+    todo: Todo,
+    user_request: str,
+    file_contexts: List[Dict[str, str]],
+    completed_todos: Optional[List[Todo]] = None,
   ) -> TodoResult:
     """Process a single todo."""
     result = await self.todo_processor.execute(
@@ -161,8 +175,8 @@ Keep both statements concise and action-oriented. Focus on concrete actions like
     todo: Todo,
     user_request: str,
     file_contexts: List[Dict[str, str]],
-    completed_todos: List[Todo] = None,
-    progress_callback: Callable = None,
+    completed_todos: Optional[List[Todo]] = None,
+    progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
   ) -> TodoResult:
     """Process a single todo progressively by breaking it into subtasks."""
     # First, get subtasks for this todo

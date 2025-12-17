@@ -1,12 +1,11 @@
 """Subtask execution tool for progressive todo completion."""
 
-import json
 from typing import Dict, List, Optional
 
 from .base import Tool, ToolResult
-from .llm_client import LLMClient
-from ..models import Todo
 from ..utils import parse_llm_json
+from ..models import Todo
+from .llm_client import LLMClient
 
 
 class SubtaskExecutor(Tool):
@@ -57,7 +56,7 @@ class SubtaskExecutor(Tool):
     todo: Todo,
     user_request: str,
     file_contexts: List[Dict[str, str]],
-    completed_subtasks: List[Dict[str, str]] = None,
+    completed_subtasks: Optional[List[Dict[str, str]]] = None,
   ) -> ToolResult:
     """Execute a single subtask."""
     if completed_subtasks is None:

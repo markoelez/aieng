@@ -3,8 +3,8 @@
 from typing import List
 
 from .base import Tool, ToolResult
-from .llm_client import LLMClient
 from ..models import FileEdit
+from .llm_client import LLMClient
 
 
 class EditSummarizer(Tool):
@@ -71,5 +71,5 @@ class EditSummarizer(Tool):
       summary = "\n".join(edit_descriptions)
       return ToolResult(success=True, data=summary)
 
-    except Exception as e:
+    except Exception:
       return ToolResult(success=True, data=f"Applied {len(applied_edits)} edit(s) successfully.")

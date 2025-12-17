@@ -1,7 +1,7 @@
 """Base classes for tools."""
 
-from abc import ABC, abstractmethod
-from typing import Any, Optional
+from abc import ABC
+from typing import Any, Callable, Optional
 from dataclasses import dataclass
 
 
@@ -17,13 +17,12 @@ class ToolResult:
 class Tool(ABC):
   """Base class for all tools."""
 
-  def __init__(self, ui_callback: Optional[callable] = None):
+  def __init__(self, ui_callback: Optional[Callable[..., None]] = None):
     self.ui_callback = ui_callback
 
-  @abstractmethod
-  async def execute(self, **kwargs) -> ToolResult:
+  async def execute(self, *args: Any, **kwargs: Any) -> ToolResult:
     """Execute the tool with given parameters."""
-    pass
+    raise NotImplementedError("Subclasses must implement execute()")
 
   def _notify_ui(self, event: str, *args, **kwargs) -> None:
     """Notify the UI of an event."""

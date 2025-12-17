@@ -317,10 +317,6 @@ class DiffProcessor:
     # This handles the case where old_content is empty/whitespace
     # We need to find where in the file the new content was actually inserted
 
-    # Since old_content is empty, the new content is being inserted somewhere
-    # Use the replacement to find the insertion point
-    new_file_content = file_content.replace("", new_text, 1)  # This doesn't work well
-
     # Better approach: if old_content is empty, it's usually an append operation
     # Find where the content was actually added by comparing before/after
     if not new_text.strip():
@@ -358,7 +354,7 @@ class DiffProcessor:
 
     return "\n".join(diff_lines)
 
-  def generate_enhanced_diff_text(self, old_content: str, new_content: str, file_path: str, change_start_line: int = None) -> str:
+  def generate_enhanced_diff_text(self, old_content: str, new_content: str, file_path: str, change_start_line: Optional[int] = None) -> str:
     """Generate diff with proper line number context"""
     # Try standard unified diff first
     old_lines = old_content.splitlines(keepends=True)
@@ -384,6 +380,33 @@ class DiffProcessor:
       return self.create_manual_diff(old_content, new_content, file_path, change_start_line)
 
     return diff_text
+
+  def create_manual_diff(self, old_content: str, new_content: str, file_path: str, change_start_line: int) -> str:
+    """Construct a manual diff block when unified diff headers are missing."""
+    old_lines = old_content.splitlines()
+    new_lines = new_content.splitlines()
+
+    context = 3
+    start_context = max(1, change_start_line - context)
+    end_context = change_start_line + len(old_lines) - 1 if old_lines else change_start_line
+
+    diff_lines = []
+    old_count = max(1, end_context - start_context + 1)
+    new_count = old_count - len(old_lines) + len(new_lines)
+    diff_lines.append(f"@@ -{start_context},{old_count} +{start_context},{new_count} @@")
+
+    # Context before change
+    for line_idx in range(start_context, change_start_line):
+      if 0 < line_idx <= len(old_lines):
+        diff_lines.append(f" {old_lines[line_idx - 1]}")
+
+    for line in old_lines:
+      diff_lines.append(f"-{line}")
+
+    for line in new_lines:
+      diff_lines.append(f"+{line}")
+
+    return "\n".join(diff_lines)
 
   def preview_edits(self, edits: List[FileEdit]) -> List[str]:
     previews = []

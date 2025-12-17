@@ -1,12 +1,12 @@
 """Todo processing tool."""
 
 import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .base import Tool, ToolResult
-from .llm_client import LLMClient
-from ..models import Todo, TodoResult
 from ..utils import parse_llm_json
+from ..models import Todo, TodoResult
+from .llm_client import LLMClient
 
 
 class TodoProcessor(Tool):
@@ -17,7 +17,11 @@ class TodoProcessor(Tool):
     self.llm_client = llm_client
 
   async def execute(
-    self, todo: Todo, user_request: str, file_contexts: List[Dict[str, str]], completed_todos: List[Todo] = None
+    self,
+    todo: Todo,
+    user_request: str,
+    file_contexts: List[Dict[str, str]],
+    completed_todos: Optional[List[Todo]] = None,
   ) -> ToolResult:
     """Process a single todo with chain-of-thought reasoning."""
     if completed_todos is None:

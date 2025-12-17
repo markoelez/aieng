@@ -2,7 +2,7 @@
 
 import os
 import asyncio
-from typing import Optional
+from typing import Callable, Optional
 
 from .base import Tool, ToolResult
 from ..models import CommandResult
@@ -11,7 +11,7 @@ from ..models import CommandResult
 class CommandExecutor(Tool):
   """Tool for executing shell commands."""
 
-  def __init__(self, project_root: str = ".", ui_callback: Optional[callable] = None):
+  def __init__(self, project_root: str = ".", ui_callback: Optional[Callable[..., None]] = None):
     super().__init__(ui_callback)
     self.project_root = os.path.abspath(project_root)
 
@@ -29,7 +29,7 @@ class CommandExecutor(Tool):
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
         stdout_text = stdout.decode("utf-8") if stdout else ""
         stderr_text = stderr.decode("utf-8") if stderr else ""
-        exit_code = process.returncode
+        exit_code = process.returncode or 0
 
         result = CommandResult(command=command, stdout=stdout_text, stderr=stderr_text, exit_code=exit_code, success=exit_code == 0)
 
