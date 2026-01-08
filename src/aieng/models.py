@@ -1,9 +1,18 @@
 """Shared data models for the AI coding agent."""
 
+from enum import Enum
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 from pydantic import BaseModel, field_validator
+
+
+class TodoStatus(str, Enum):
+  """Status of a todo item, following Claude Code's pattern."""
+
+  PENDING = "pending"
+  IN_PROGRESS = "in_progress"
+  COMPLETED = "completed"
 
 
 @dataclass
@@ -35,13 +44,34 @@ class LLMResponse(BaseModel):
 
 
 class Todo(BaseModel):
-  """Represents a todo item."""
+  """Represents a todo item with state management like Claude Code."""
 
   id: int
-  task: str
+  task: str  # The imperative form (e.g., "Run tests")
+  active_form: str = ""  # The present continuous form (e.g., "Running tests")
   reasoning: str
   priority: str  # "high", "medium", "low"
+  status: TodoStatus = TodoStatus.PENDING
   dependencies: List[int] = []  # IDs of todos this depends on
+
+  @field_validator("active_form", mode="before")
+  @classmethod
+  def set_active_form(cls, v, info):
+    """Auto-generate active_form from task if not provided."""
+    if not v and info.data.get("task"):
+      task = info.data["task"]
+      # Simple transformation: if starts with a verb, convert to -ing form
+      return f"{task}..."
+    return v or ""
+
+  def is_pending(self) -> bool:
+    return self.status == TodoStatus.PENDING
+
+  def is_in_progress(self) -> bool:
+    return self.status == TodoStatus.IN_PROGRESS
+
+  def is_completed(self) -> bool:
+    return self.status == TodoStatus.COMPLETED
 
 
 class TodoPlan(BaseModel):

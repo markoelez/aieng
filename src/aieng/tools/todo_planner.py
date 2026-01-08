@@ -66,12 +66,18 @@ Return JSON with:
     {{
       "id": 1,
       "task": "Concrete, focused task to implement (max 12 words)",
-      "reasoning": "Why this task is needed (max 10 words)", 
+      "active_form": "Present continuous form shown during execution (e.g., 'Creating unit tests...')",
+      "reasoning": "Why this task is needed (max 10 words)",
       "priority": "high/medium/low",
       "dependencies": []
     }}
   ]
 }}
+
+IMPORTANT: The "active_form" should be the present continuous (-ing) form of the task, shown while the task is being executed. For example:
+- task: "Create unit tests" -> active_form: "Creating unit tests..."
+- task: "Add error handling" -> active_form: "Adding error handling..."
+- task: "Implement user authentication" -> active_form: "Implementing user authentication..."
 
 REMEMBER: Create tasks that are concrete actions, not broad objectives or tiny details.
 """

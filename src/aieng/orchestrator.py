@@ -6,6 +6,7 @@ from .agent import Agent
 from .config import DEFAULT_MODEL, SUPPORTED_MODELS, DEFAULT_API_BASE_URL
 from .models import FileEdit, SearchResult
 from .context import FileContextManager
+from .todo_manager import TodoManager
 
 
 class AIAgentOrchestrator:
@@ -18,6 +19,12 @@ class AIAgentOrchestrator:
     # Use model from config if available, otherwise use provided default
     self.model = self.config.get("model", model)
     self.agent = Agent(model=self.model, ui_callback=self._ui_callback, project_root=project_root, config=self.config)
+
+    # Initialize TodoManager for centralized state tracking
+    self.todo_manager = TodoManager(ui_callback=self._todo_ui_callback)
+
+    # Connect agent to TodoManager for dynamic todo modification
+    self.agent.set_todo_manager(self.todo_manager)
 
     # Update UI with auto-accept status
     self.ui.set_auto_accept(self.config.get("auto_accept", False))
@@ -38,6 +45,17 @@ class AIAgentOrchestrator:
       self.ui.start_loading(*args)
     elif action == "stop_loading":
       self.ui.stop_loading()
+
+  def _todo_ui_callback(self, event: str, data: dict):
+    """Callback for TodoManager to update UI on state changes"""
+    if event == "plan_set":
+      self.ui.show_todo_list(data["todos"], current_todo_id=None)
+    elif event == "todo_in_progress":
+      self.ui.show_todo_list(self.todo_manager.todos, current_todo_id=data["todo"].id)
+    elif event == "todo_completed":
+      self.ui.show_todo_list(self.todo_manager.todos, current_todo_id=None)
+    elif event == "todo_added":
+      self.ui.show_todo_added(data["todo"])
 
   def load_config(self) -> dict:
     """Load configuration from aieng.toml if it exists."""
@@ -62,60 +80,71 @@ class AIAgentOrchestrator:
       tomli_w.dump(self.config, f)
 
   async def process_user_request(self, user_request: str, specific_files: Optional[List[str]] = None) -> bool:
+    """Process a user request using a tight agentic loop pattern.
+
+    The loop follows Claude Code's pattern:
+    1. Create a plan with todos
+    2. Display the todo list
+    3. Pick next todo, mark in_progress
+    4. Execute the todo
+    5. Mark completed, update UI
+    6. Loop until all complete
+    """
     try:
       # Build context
       file_contexts = self.context_manager.build_context(user_request, specific_files)
       self.ui.show_analyzing_files(file_contexts)
 
-      # Generate todo plan
+      # Step 1: Create plan with todos
       todo_plan = await self.agent.generate_todo_plan(user_request, file_contexts)
 
-      # Process todos sequentially with dependency handling
-      completed_todos = []
+      # Initialize TodoManager with the plan
+      self.todo_manager.set_plan(todo_plan)
+
       all_edits = []
 
-      # Sort todos by dependencies (simple topological sort)
-      remaining_todos = todo_plan.todos.copy()
+      # Step 2-6: Tight agentic loop - process todos until complete
+      while self.todo_manager.has_remaining_work():
+        # Get the next ready todo
+        current_todo = self.todo_manager.get_next_todo()
 
-      while remaining_todos:
-        # Find todos with no unresolved dependencies
-        ready_todos = [todo for todo in remaining_todos if all(dep_id in [ct.id for ct in completed_todos] for dep_id in todo.dependencies)]
+        if current_todo is None:
+          # Check for dependency cycles or no ready todos
+          pending = self.todo_manager.get_pending_todos()
+          if pending:
+            # Force pick the first pending todo to break cycle
+            current_todo = pending[0]
+          else:
+            break
 
-        if not ready_todos:
-          # If no todos are ready, pick the first one (dependency cycle or issue)
-          ready_todos = [remaining_todos[0]]
+        # Mark todo as in_progress (this triggers UI update)
+        self.todo_manager.mark_in_progress(current_todo.id)
 
-        # Process the next ready todo
-        current_todo = ready_todos[0]
-        remaining_todos.remove(current_todo)
-
+        # Show what we're working on
         self.ui.show_processing_todo(current_todo.id, current_todo.task)
 
-        # Step 1: Update Todos - Show current todo status
-        self.ui.show_todo_plan(todo_plan.summary, todo_plan.todos, current_todo.id, [ct.id for ct in completed_todos])
-
-        # Step 2: Self-Reflection - Plan next actions
+        # Self-Reflection - Plan next actions
+        completed_todos = self.todo_manager.get_completed_todos()
         self_reflection = await self.agent.self_reflect(current_todo, user_request, file_contexts, completed_todos)
         self.ui.show_self_reflection(self_reflection)
 
-        # Step 3: Execute Actions - Process the todo with chain-of-thought
-        # Define progress callback to show subtasks as they execute
+        # Execute Actions - Process the todo with progressive subtask execution
         first_subtask = True
 
         def progress_callback(event_type, data):
           nonlocal first_subtask
           if event_type == "subtask_start":
             if first_subtask:
-              self.ui.console.print()  # Add spacing before first subtask
+              self.ui.console.print()
               first_subtask = False
             else:
-              self.ui.console.print()  # Add spacing between subtasks
+              self.ui.console.print()
             self.ui.show_step(f"Starting: {data['description']}")
-            self.ui.console.print()  # Add spacing after "Starting:" before thinking
+            self.ui.console.print()
           elif event_type == "subtask_complete":
             subtask = data["subtask"]
             edit = data["edit"]
-            self.ui.console.print()  # Add spacing before "Generated:"
+            self.ui.console.print()
             self.ui.show_step(f"Generated: {subtask['description']}", is_final=True)
 
             # Show the diff immediately after generation
@@ -130,10 +159,10 @@ class AIAgentOrchestrator:
             self.ui.show_diff_header(edit_obj.file_path, edit_obj.description, is_new_file)
             self.ui.show_diff_content(diff_preview)
 
-            # Apply the edit immediately with default acceptance
+            # Apply the edit immediately
             auto_accept = hasattr(self, "config") and self.config.get("auto_accept", False)
             if auto_accept:
-              self.ui.console.print()  # Add spacing before "Applying Changes"
+              self.ui.console.print()
               self.ui.show_applying_changes()
               results = self.diff_processor.apply_edits([edit_obj])
               if results[0].success:
@@ -142,21 +171,20 @@ class AIAgentOrchestrator:
               else:
                 self.ui.show_error(f"Failed to apply edit to {edit_obj.file_path}: {results[0].error}")
             else:
-              # Ask for confirmation for this file
               should_apply, _, _ = self.ui.confirm_single_file_change(edit_obj.file_path, auto_accept=False)
               if should_apply:
-                self.ui.console.print()  # Add spacing before "Applying Changes"
+                self.ui.console.print()
                 self.ui.show_applying_changes()
                 results = self.diff_processor.apply_edits([edit_obj])
                 if results[0].success:
                   all_edits.append(edit_obj)
                   self.ui.show_success(1)
-                  self.ui.console.print()  # Add spacing after successful edit
+                  self.ui.console.print()
                 else:
                   self.ui.show_error(f"Failed to apply edit to {edit_obj.file_path}: {results[0].error}")
-                  self.ui.console.print()  # Add spacing after error
+                  self.ui.console.print()
 
-        # Use progressive processing
+        # Process the todo
         todo_result = await self.agent.process_todo_progressive(
           current_todo, user_request, file_contexts, completed_todos, progress_callback
         )
@@ -180,7 +208,6 @@ class AIAgentOrchestrator:
             description = search_data.get("description", f"Search for todo {current_todo.id}")
 
             if command:
-              # Execute the search command and capture results
               command_result = await self.agent.execute_command(command)
               search_result = SearchResult(
                 query=query,
@@ -191,33 +218,21 @@ class AIAgentOrchestrator:
               search_results.append(search_result)
 
           if search_results:
-            # Show search results
             self.ui.show_multiple_searches(search_results)
 
-        # Edits were already applied during progressive generation in the callback
-        # Just mark the todo as completed based on whether we have any edits
-        if all_edits:
-          self.ui.show_todo_completion(current_todo.id, True)
-          completed_todos.append(current_todo)
-        elif todo_result.completed:
-          # Todo was completed without edits (e.g., just commands)
-          self.ui.show_todo_completion(current_todo.id, True)
-          completed_todos.append(current_todo)
-        else:
-          # No edits needed for this todo
-          self.ui.show_todo_completion(current_todo.id, todo_result.completed, todo_result.next_steps or "")
-          if todo_result.completed:
-            completed_todos.append(current_todo)
+        # Mark todo as completed (this triggers UI update)
+        self.todo_manager.mark_completed(current_todo.id)
+        self.ui.show_todo_completion(current_todo.id, True)
 
-      # Generate final summary only if edits were applied
+      # Generate final summary
       if all_edits:
         self.ui.show_generating_summary()
         summary = await self.agent.generate_edit_summary(all_edits, user_request)
         self.ui.show_edit_summary(summary)
         self.ui.show_success(len(all_edits))
-      elif completed_todos:
-        # If todos completed but no edits were needed
+      elif self.todo_manager.is_all_completed():
         self.ui.show_step("All todos completed", is_final=True)
+
       return True
 
     except Exception as e:

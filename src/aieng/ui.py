@@ -10,7 +10,7 @@ from rich.prompt import Prompt
 from rich.console import Console
 
 from .config import DEFAULT_MODEL, API_KEY_ENV_VAR, SUPPORTED_MODELS, DEFAULT_API_BASE_URL
-from .models import FileEdit, SelfReflection
+from .models import FileEdit, TodoStatus, SelfReflection
 
 
 class TerminalUI:
@@ -720,6 +720,55 @@ class TerminalUI:
   def show_todo_update_complete(self):
     """Add spacing after todo updates"""
     self.console.print()  # Add spacing after todo updates
+
+  def show_todo_list(self, todos: list, current_todo_id: Optional[int] = None):
+    """Show the todo list with status indicators like Claude Code.
+
+    Args:
+      todos: List of Todo objects
+      current_todo_id: ID of the currently in-progress todo
+    """
+    self.console.print()
+    bullet = "⏺"
+    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Todo List[/bold bright_white]")
+
+    for i, todo in enumerate(todos):
+      # Determine status indicator and color
+      if todo.status == TodoStatus.COMPLETED:
+        status_icon = "☒"
+        color = "#8FDC8D"  # Green
+      elif todo.status == TodoStatus.IN_PROGRESS or todo.id == current_todo_id:
+        status_icon = "⏺"
+        color = "#B7E0FF"  # Blue (in progress)
+      else:
+        status_icon = "☐"
+        color = "white"  # Pending
+
+      # Build deps text
+      deps_text = f" (depends on: {', '.join(map(str, todo.dependencies))})" if todo.dependencies else ""
+
+      # Display with active form for in-progress, task for others
+      if todo.status == TodoStatus.IN_PROGRESS or todo.id == current_todo_id:
+        display_text = todo.active_form or todo.task
+      else:
+        display_text = todo.task
+
+      if i == 0:
+        self.console.print(f"  [white]⎿[/white]  [{color}]{status_icon} {display_text}{deps_text}[/{color}]")
+      else:
+        self.console.print(f"     [{color}]{status_icon} {display_text}{deps_text}[/{color}]")
+
+    self.console.print()
+
+  def show_todo_added(self, todo):
+    """Show when a new todo is added dynamically.
+
+    Args:
+      todo: The newly added Todo object
+    """
+    self.console.print()
+    self.console.print(f"[#B7E0FF]+ Added new todo: {todo.task}[/#B7E0FF]")
+    self.console.print()
 
   def show_command_execution(self, command: str):
     """Show command execution in GPT Codex style"""

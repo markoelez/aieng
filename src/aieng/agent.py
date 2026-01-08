@@ -1,7 +1,7 @@
 """AI Agent for code generation and modification."""
 
 import os
-from typing import Any, Dict, List, Callable, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Callable, Optional
 
 from .tools import (
   LLMClient,
@@ -23,6 +23,9 @@ from .models import (
   SelfReflection,
 )
 
+if TYPE_CHECKING:
+  from .todo_manager import TodoManager
+
 
 class Agent:
   """Main agent class that coordinates various tools."""
@@ -37,6 +40,7 @@ class Agent:
     """Initialize the agent with its tools."""
     self.project_root = os.path.abspath(project_root)
     self.ui_callback = ui_callback
+    self._todo_manager: Optional["TodoManager"] = None
 
     # Initialize tools
     self.llm_client = LLMClient(model=model, config=config, ui_callback=ui_callback)
@@ -45,6 +49,35 @@ class Agent:
     self.todo_processor = TodoProcessor(self.llm_client)
     self.edit_summarizer = EditSummarizer(self.llm_client)
     self.subtask_executor = SubtaskExecutor(self.llm_client)
+
+  def set_todo_manager(self, todo_manager: "TodoManager") -> None:
+    """Set the TodoManager reference for dynamic todo modification.
+
+    Args:
+      todo_manager: The TodoManager instance to use
+    """
+    self._todo_manager = todo_manager
+
+  def add_todo(
+    self, task: str, reasoning: str = "", priority: str = "medium", active_form: str = "", dependencies: Optional[List[int]] = None
+  ) -> Optional[Todo]:
+    """Dynamically add a new todo during execution.
+
+    This allows the agent to add new todos as it discovers more work is needed.
+
+    Args:
+      task: The task description
+      reasoning: Why this task is needed
+      priority: Task priority (high/medium/low)
+      active_form: Present continuous form for UI display
+      dependencies: List of todo IDs this depends on
+
+    Returns:
+      The newly created Todo, or None if no TodoManager is set
+    """
+    if self._todo_manager is None:
+      return None
+    return self._todo_manager.add_todo(task, reasoning, priority, active_form, dependencies)
 
   async def execute_command(self, command: str, timeout: int = 30) -> CommandResult:
     """Execute a terminal command."""
