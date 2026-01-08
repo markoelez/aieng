@@ -4,7 +4,6 @@ import threading
 from typing import List, Optional
 
 from rich.live import Live
-from rich.rule import Rule
 from rich.text import Text
 from rich.prompt import Prompt
 from rich.console import Console
@@ -25,9 +24,6 @@ class TerminalUI:
     self.auto_accept = False
     self.commands_visible = False
     self.show_tips = True
-
-  def show_welcome(self):
-    pass
 
   def _add_spacing(self):
     """Add a blank line for consistent spacing between task blocks."""
@@ -694,42 +690,6 @@ class TerminalUI:
 
   def clear_screen(self):
     self.console.clear()
-
-  def print_separator(self):
-    self.console.print()
-    self.console.print(Rule(style="dim"))
-
-  def show_todo_update_header(self):
-    """Show the 'Update Todos' header"""
-    self.console.print()
-    # Custom formatting for Update Todos header
-    bullet = "⏺"
-    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Update Todos[/bold bright_white]")
-    self._first_todo_in_update = True
-
-  def show_todo_status(self, todo_id: int, task: str, completed: bool, is_current: bool = False):
-    """Show individual todo status with new formatting"""
-    if hasattr(self, "_first_todo_in_update") and self._first_todo_in_update:
-      # First todo on same line as ⎿
-      if completed:
-        self.console.print(f"  [white]⎿[/white]  [#8FDC8D]☒ {task}[/#8FDC8D]")
-      elif is_current:
-        self.console.print(f"  [white]⎿[/white]  [bold #B7E0FF]⏺ {task}[/bold #B7E0FF]")
-      else:
-        self.console.print(f"  [white]⎿[/white]  [white]☐ {task}[/white]")
-      self._first_todo_in_update = False
-    else:
-      # Subsequent todos aligned with first
-      if completed:
-        self.console.print(f"     [#8FDC8D]☒ {task}[/#8FDC8D]")
-      elif is_current:
-        self.console.print(f"     [bold #B7E0FF]⏺ {task}[/bold #B7E0FF]")
-      else:
-        self.console.print(f"     [white]☐ {task}[/white]")
-
-  def show_todo_update_complete(self):
-    """Add spacing after todo updates"""
-    self.console.print()  # Add spacing after todo updates
 
   def show_todo_list(self, todos: list, current_todo_id: Optional[int] = None):
     """Show the todo list with status indicators like Claude Code.

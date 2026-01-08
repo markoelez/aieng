@@ -2,8 +2,6 @@ import fnmatch
 from typing import Dict, List, Optional
 from pathlib import Path
 
-import git
-
 
 class FileContextManager:
   def __init__(self, project_root: str = "."):
@@ -129,24 +127,6 @@ class FileContextManager:
         contexts.append({"path": str(file_path.relative_to(self.project_root)), "content": f"Error reading file: {e}"})
 
     return contexts
-
-  def get_git_context(self) -> Dict[str, str]:
-    try:
-      repo = git.Repo(self.project_root)
-
-      # Get recent commits
-      commits = list(repo.iter_commits(max_count=5))
-      commit_info = []
-      for commit in commits:
-        commit_info.append(f"{commit.hexsha[:8]}: {commit.message.strip()}")
-
-      # Get current branch and status
-      branch = repo.active_branch.name
-      status = repo.git.status("--porcelain")
-
-      return {"branch": branch, "recent_commits": "\n".join(commit_info), "status": status}
-    except:
-      return {"error": "Not a git repository or git not available"}
 
   def build_context(self, user_request: str, specific_files: Optional[List[str]] = None) -> List[Dict[str, str]]:
     if specific_files:
