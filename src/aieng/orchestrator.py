@@ -47,15 +47,18 @@ class AIAgentOrchestrator:
       self.ui.stop_loading()
 
   def _todo_ui_callback(self, event: str, data: dict):
-    """Callback for TodoManager to update UI on state changes"""
+    """Callback for TodoManager to update UI on state changes.
+
+    Only shows the full todo list once at plan creation.
+    Status changes are shown inline, not as full list reprints.
+    """
     if event == "plan_set":
+      # Show the full todo list only once when plan is created
       self.ui.show_todo_list(data["todos"], current_todo_id=None)
-    elif event == "todo_in_progress":
-      self.ui.show_todo_list(self.todo_manager.todos, current_todo_id=data["todo"].id)
-    elif event == "todo_completed":
-      self.ui.show_todo_list(self.todo_manager.todos, current_todo_id=None)
     elif event == "todo_added":
       self.ui.show_todo_added(data["todo"])
+    # Note: todo_in_progress and todo_completed are handled inline by show_processing_todo
+    # and show_todo_completion, so we don't reprint the full list
 
   def load_config(self) -> dict:
     """Load configuration from aieng.toml if it exists."""
@@ -134,17 +137,11 @@ class AIAgentOrchestrator:
         def progress_callback(event_type, data):
           nonlocal first_subtask
           if event_type == "subtask_start":
-            if first_subtask:
-              self.ui.console.print()
-              first_subtask = False
-            else:
-              self.ui.console.print()
+            first_subtask = False
             self.ui.show_step(f"Starting: {data['description']}")
-            self.ui.console.print()
           elif event_type == "subtask_complete":
             subtask = data["subtask"]
             edit = data["edit"]
-            self.ui.console.print()
             self.ui.show_step(f"Generated: {subtask['description']}", is_final=True)
 
             # Show the diff immediately after generation
@@ -162,7 +159,6 @@ class AIAgentOrchestrator:
             # Apply the edit immediately
             auto_accept = hasattr(self, "config") and self.config.get("auto_accept", False)
             if auto_accept:
-              self.ui.console.print()
               self.ui.show_applying_changes()
               results = self.diff_processor.apply_edits([edit_obj])
               if results[0].success:
@@ -173,16 +169,13 @@ class AIAgentOrchestrator:
             else:
               should_apply, _, _ = self.ui.confirm_single_file_change(edit_obj.file_path, auto_accept=False)
               if should_apply:
-                self.ui.console.print()
                 self.ui.show_applying_changes()
                 results = self.diff_processor.apply_edits([edit_obj])
                 if results[0].success:
                   all_edits.append(edit_obj)
                   self.ui.show_success(1)
-                  self.ui.console.print()
                 else:
                   self.ui.show_error(f"Failed to apply edit to {edit_obj.file_path}: {results[0].error}")
-                  self.ui.console.print()
 
         # Process the todo
         todo_result = await self.agent.process_todo_progressive(

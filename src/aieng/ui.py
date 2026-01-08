@@ -29,6 +29,10 @@ class TerminalUI:
   def show_welcome(self):
     pass
 
+  def _add_spacing(self):
+    """Add a blank line for consistent spacing between task blocks."""
+    self.console.print()
+
   def set_auto_accept(self, enabled: bool):
     """Set the auto-accept status for UI display"""
     self.auto_accept = enabled
@@ -244,8 +248,7 @@ class TerminalUI:
               self._handle_clear_command()
               break
 
-            # Add blank line for separation before agent output (only for regular input)
-            self.console.print()
+            # Return user input - each UI method handles its own spacing
             return user_input
 
           elif ord(char) == 127:  # Backspace
@@ -343,47 +346,49 @@ class TerminalUI:
           break
 
   def show_step(self, step_text: str, is_final: bool = False):
-    """Show a step in Claude Code style"""
+    """Show a step in Claude Code style. Adds blank line before."""
+    self._add_spacing()
     bullet = "⏺"
     if is_final:
-      self.console.print(f"[#8FDC8D]{bullet}[/#8FDC8D] [white]{step_text}[/white]")
+      self.console.print(f"[bright_green]{bullet}[/bright_green] [bright_white]{step_text}[/bright_white]")
     else:
-      self.console.print(f"[white]{bullet}[/white] [white]{step_text}[/white]")
+      self.console.print(f"[bright_white]{bullet}[/bright_white] [bright_white]{step_text}[/bright_white]")
 
   def show_analyzing_files(self, file_contexts: List[dict]):
     if not file_contexts:
       return
 
-    self.show_step("Analyzing Files")
+    self._add_spacing()
+    bullet = "⏺"
+    self.console.print(f"[bright_white]{bullet}[/bright_white] [bright_white]Analyzing Files[/bright_white]")
     for ctx in file_contexts:
-      self.console.print(f"  [white]• {ctx['path']}[/white]")
-    self.console.print()  # Add spacing after file list
+      self.console.print(f"  [bright_white]• {ctx['path']}[/bright_white]")
 
   def show_reading_file(self, file_path: str, lines_read: int = 0):
     """Show when a file is being read in Claude Code style"""
-    self.console.print()
+    self._add_spacing()
     bullet = "⏺"
-    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Read[/bold bright_white]([bright_white]{file_path}[/bright_white])")
+    self.console.print(
+      f"[bright_white]{bullet}[/bright_white] [bold bright_white]Read[/bold bright_white]([bright_cyan]{file_path}[/bright_cyan])"
+    )
     if lines_read > 0:
-      self.console.print(f"  [white]⎿[/white]  [dim white]Read {lines_read} line{'s' if lines_read != 1 else ''}[/dim white]")
+      self.console.print(f"  [bright_white]⎿[/bright_white]  [white]Read {lines_read} line{'s' if lines_read != 1 else ''}[/white]")
 
   def show_generating_response(self):
     self.show_step("Generating Response")
-    self.console.print()  # Add spacing after step
 
   def show_generating_edits(self, todo_id: str):
     """Show when edits are being generated for a todo"""
     self.show_step(f"Generating edits for todo {todo_id}")
-    self.console.print()  # Add spacing after step
 
   def show_search_header(self, query: str, search_description: str):
-    """Show search in GPT Codex style"""
-    self.console.print()
-    # Custom formatting for Search header - only "Search" is bold
-    bullet = "●"
-    self.console.print(f"[#60875F]{bullet}[/#60875F] [bold bright_white]Search[/bold bright_white]([bright_white]{query}[/bright_white])")
-    self.console.print(f"  [white]⎿  {search_description}[/white]")
-    self.console.print()  # Add spacing before search content
+    """Show search in Claude Code style"""
+    self._add_spacing()
+    bullet = "⏺"
+    self.console.print(
+      f"[bright_white]{bullet}[/bright_white] [bold bright_white]Search[/bold bright_white]([bright_magenta]{query}[/bright_magenta])"
+    )
+    self.console.print(f"  [bright_white]⎿[/bright_white]  [white]{search_description}[/white]")
 
   def show_search_content(self, command: str, results: str):
     """Show the actual search command and results"""
@@ -391,41 +396,39 @@ class TerminalUI:
       return
 
     # Show the command that was executed
-    self.console.print(f"       [bright_white]Command: {command}[/bright_white]")
-    self.console.print()
+    self.console.print(f"       [bright_yellow]$ {command}[/bright_yellow]")
 
     # Show search results with proper formatting
     lines = results.split("\n")
     for line in lines:
       if line.strip():
-        self.console.print(f"         [white]{line}[/white]")
-    self.console.print()  # Add spacing after search results
+        self.console.print(f"         [bright_white]{line}[/bright_white]")
 
   def show_diff_header(
     self, file_path: str, edit_description: str, is_new_file: bool = False, added_lines: int = 0, removed_lines: int = 0
   ):
     """Show diff header in Claude Code style"""
-    self.console.print()
+    self._add_spacing()
     bullet = "⏺"
     if is_new_file:
       operation = "Write"
     else:
       operation = "Update"
     self.console.print(
-      f"[white]{bullet}[/white] [bold bright_white]{operation}[/bold bright_white]([bright_white]{file_path}[/bright_white])"
+      f"[bright_white]{bullet}[/bright_white] [bold bright_white]{operation}[/bold bright_white]([bright_cyan]{file_path}[/bright_cyan])"
     )
 
     # Show line change summary like Claude Code
     if added_lines > 0 or removed_lines > 0:
       parts = []
       if added_lines > 0:
-        parts.append(f"Added {added_lines} line{'s' if added_lines != 1 else ''}")
+        parts.append(f"[bright_green]Added {added_lines} line{'s' if added_lines != 1 else ''}[/bright_green]")
       if removed_lines > 0:
-        parts.append(f"removed {removed_lines} line{'s' if removed_lines != 1 else ''}")
+        parts.append(f"[bright_red]removed {removed_lines} line{'s' if removed_lines != 1 else ''}[/bright_red]")
       change_summary = ", ".join(parts)
-      self.console.print(f"  [white]⎿[/white]  [dim white]{change_summary}[/dim white]")
+      self.console.print(f"  [bright_white]⎿[/bright_white]  {change_summary}")
     elif edit_description:
-      self.console.print(f"  [white]⎿[/white]  [dim white]{edit_description}[/dim white]")
+      self.console.print(f"  [bright_white]⎿[/bright_white]  [white]{edit_description}[/white]")
 
   def show_diff_content(self, diff_text: str):
     """Show the actual diff content in Claude Code style"""
@@ -455,30 +458,30 @@ class TerminalUI:
       elif line.startswith("+++") or line.startswith("---"):
         continue
       elif line.startswith("+") and not line.startswith("+++"):
-        # Added line - green with + prefix
+        # Added line - bright green
         line_content = line[1:] if len(line) > 1 else ""
         self.console.print(
-          f"      [dim white]{new_line_num:>4}[/dim white] [#8FDC8D]+[/#8FDC8D] [#8FDC8D]{line_content}[/#8FDC8D]",
+          f"      [white]{new_line_num:>4}[/white] [bright_green]+[/bright_green] [bright_green]{line_content}[/bright_green]",
           overflow="ellipsis",
           no_wrap=True,
         )
         if new_line_num is not None:
           new_line_num += 1
       elif line.startswith("-") and not line.startswith("---"):
-        # Removed line - red with - prefix
+        # Removed line - bright red
         line_content = line[1:] if len(line) > 1 else ""
         self.console.print(
-          f"      [dim white]{old_line_num:>4}[/dim white] [#E88388]-[/#E88388] [#E88388]{line_content}[/#E88388]",
+          f"      [white]{old_line_num:>4}[/white] [bright_red]-[/bright_red] [bright_red]{line_content}[/bright_red]",
           overflow="ellipsis",
           no_wrap=True,
         )
         if old_line_num is not None:
           old_line_num += 1
       elif line.startswith(" "):
-        # Context line - dim text
+        # Context line - regular white
         line_content = line[1:] if len(line) > 1 else ""
         self.console.print(
-          f"      [dim white]{new_line_num:>4}[/dim white]   [dim white]{line_content}[/dim white]",
+          f"      [white]{new_line_num:>4}[/white]   [white]{line_content}[/white]",
           overflow="ellipsis",
           no_wrap=True,
         )
@@ -487,7 +490,7 @@ class TerminalUI:
         if old_line_num is not None:
           old_line_num += 1
       elif line.strip():
-        self.console.print(f"             [dim white]{line}[/dim white]")
+        self.console.print(f"             [white]{line}[/white]")
 
   def show_multiple_searches(self, search_results: List):
     """Show multiple search operations"""
@@ -570,33 +573,28 @@ class TerminalUI:
 
   def show_applying_changes(self):
     self.show_step("Applying Changes")
-    self.console.print()  # Add spacing after "Applying Changes"
 
   def show_success(self, num_edits: int):
     self.show_step(f"Successfully applied {num_edits} edit(s)", is_final=True)
 
   def show_generating_summary(self):
     self.show_step("Generating Summary")
-    self.console.print()  # Add spacing after step
 
   def show_edit_summary(self, summary: str):
-    self.console.print()
     self.show_step("Summary", is_final=True)
     # Display the bulleted list of edits
     for line in summary.split("\n"):
       if line.strip():
         self.console.print(f"  [white]{line}[/white]")
-    self.console.print()  # Add spacing after summary
 
   def show_planning(self):
     self.show_step("Planning")
-    self.console.print()  # Add spacing after step
 
   def show_todo_plan(self, plan_summary: str, todos, current_todo_id=None, completed_todo_ids=None):
-    self.console.print()
+    self._add_spacing()
     # Custom formatting for Update Todos header
     bullet = "⏺"
-    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Update Todos[/bold bright_white]")
+    self.console.print(f"[bright_white]{bullet}[/bright_white] [bold bright_white]Update Todos[/bold bright_white]")
 
     if completed_todo_ids is None:
       completed_todo_ids = []
@@ -622,80 +620,76 @@ class TerminalUI:
           self.console.print(f"     [bold #B7E0FF]⏺ {todo.task}{deps_text}[/bold #B7E0FF]")
         else:
           self.console.print(f"     [white]☐ {todo.task}{deps_text}[/white]")
-    self.console.print()  # Add spacing after todo plan
 
   def show_processing_todo(self, todo_id: int, task: str):
     """Show which todo is being processed"""
-    self.console.print()
+    self._add_spacing()
     bullet = "⏺"
-    self.console.print(f"[#B7E0FF]{bullet}[/#B7E0FF] [bold white]Working on:[/bold white] [white]{task}[/white]")
+    self.console.print(
+      f"[bright_cyan]{bullet}[/bright_cyan] [bold bright_white]Working on:[/bold bright_white] [bright_white]{task}[/bright_white]"
+    )
 
   def show_self_reflection(self, reflection: SelfReflection):
     """Show self-reflection in Claude Code style"""
-    self.console.print()
+    self._add_spacing()
     bullet = "⏺"
     # Show the current state as the main action
-    self.console.print(f"[white]{bullet}[/white] [white]{reflection.current_state}[/white]")
-    self.console.print()
+    self.console.print(f"[bright_white]{bullet}[/bright_white] [bright_white]{reflection.current_state}[/bright_white]")
 
   def show_todo_thinking(self, thinking: str):
     """Show thinking process - minimal display"""
     # Only show if there's substantial thinking
     if thinking and len(thinking.strip()) > 20:
       truncated = thinking[:150] + "..." if len(thinking) > 150 else thinking
-      self.console.print(f"  [dim white]{truncated}[/dim white]")
-      self.console.print()
+      self.console.print(f"  [white]{truncated}[/white]")
 
   def show_todo_completion(self, todo_id: int, completed: bool, next_steps: str = ""):
     """Show todo completion status"""
+    self._add_spacing()
     if completed:
       bullet = "⏺"
-      self.console.print(f"[#8FDC8D]{bullet}[/#8FDC8D] [#8FDC8D]Completed[/#8FDC8D]")
+      self.console.print(f"[bright_green]{bullet}[/bright_green] [bright_green]Completed[/bright_green]")
     else:
       bullet = "⏺"
-      self.console.print(f"[#E88388]{bullet}[/#E88388] [#E88388]Incomplete[/#E88388]")
+      self.console.print(f"[bright_red]{bullet}[/bright_red] [bright_red]Incomplete[/bright_red]")
       if next_steps:
-        self.console.print(f"  [white]⎿[/white]  [dim white]Next: {next_steps}[/dim white]")
-    self.console.print()
+        self.console.print(f"  [bright_white]⎿[/bright_white]  [white]Next: {next_steps}[/white]")
 
   def show_llm_retry(self, attempt: int, max_retries: int, error: str):
     self.console.print(f"  [bright_white]️ LLM request failed (attempt {attempt}/{max_retries}): {error[:50]}...[/bright_white]")
     self.console.print(f"  [bright_white] Retrying in {2 ** (attempt - 1)} seconds...[/bright_white]")
-    self.console.print()  # Add spacing after retry message
 
   def show_llm_retry_success(self, final_attempt: int):
     self.console.print(f"  [bright_white]● LLM request succeeded on attempt {final_attempt}[/bright_white]")
-    self.console.print()  # Add spacing after success
 
   def show_llm_retry_failed(self, max_retries: int, final_error: str):
     self.console.print(f"  [red]● LLM request failed after {max_retries} attempts[/red]")
     self.console.print(f"  [red]Final error: {final_error[:100]}...[/red]")
-    self.console.print()  # Add spacing after failure
 
   def show_error(self, error: str):
     """Show error in Claude Code style"""
-    self.console.print()
+    self._add_spacing()
     bullet = "⏺"
-    self.console.print(f"[#E88388]{bullet}[/#E88388] [#E88388]Error: {error}[/#E88388]")
+    self.console.print(f"[bright_red]{bullet}[/bright_red] [bright_red]Error: {error}[/bright_red]")
 
   def show_partial_success(self, successful_edits: int, total_edits: int, error: str):
-    self.console.print()
+    self._add_spacing()
     self.console.print(f"[bright_white]⚠️ Applied {successful_edits}/{total_edits} edits before encountering error:[/bright_white]")
     self.console.print(f"[red]{error}[/red]")
 
   def show_rejection(self):
-    self.console.print()
+    self._add_spacing()
     self.console.print("[bright_white]Changes rejected[/bright_white]")
 
   def show_goodbye(self):
-    self.console.print()
+    self._add_spacing()
     self.console.print("[bright_white]Goodbye![/bright_white]")
 
   def ask_continue(self) -> bool:
     return True  # Always continue, no prompt needed
 
   def show_edit_validation_error(self, edit: FileEdit, error: str):
-    self.console.print()
+    self._add_spacing()
     self.console.print(f"[red] Validation failed for {edit.file_path}: {error}[/red]")
 
   def clear_screen(self):
@@ -744,24 +738,24 @@ class TerminalUI:
       todos: List of Todo objects
       current_todo_id: ID of the currently in-progress todo
     """
-    self.console.print()
+    self._add_spacing()
     bullet = "⏺"
-    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Todo List[/bold bright_white]")
+    self.console.print(f"[bright_white]{bullet}[/bright_white] [bold bright_white]Todo List[/bold bright_white]")
 
     for i, todo in enumerate(todos):
       # Determine status indicator and color
       if todo.status == TodoStatus.COMPLETED:
         status_icon = "☒"
-        color = "#8FDC8D"  # Green
+        color = "bright_green"
       elif todo.status == TodoStatus.IN_PROGRESS or todo.id == current_todo_id:
         status_icon = "⏺"
-        color = "#B7E0FF"  # Blue (in progress)
+        color = "bright_cyan"
       else:
         status_icon = "☐"
-        color = "white"  # Pending
+        color = "bright_white"
 
       # Build deps text
-      deps_text = f" (depends on: {', '.join(map(str, todo.dependencies))})" if todo.dependencies else ""
+      deps_text = f" [dim](depends on: {', '.join(map(str, todo.dependencies))})[/dim]" if todo.dependencies else ""
 
       # Display with active form for in-progress, task for others
       if todo.status == TodoStatus.IN_PROGRESS or todo.id == current_todo_id:
@@ -770,11 +764,9 @@ class TerminalUI:
         display_text = todo.task
 
       if i == 0:
-        self.console.print(f"  [white]⎿[/white]  [{color}]{status_icon} {display_text}{deps_text}[/{color}]")
+        self.console.print(f"  [bright_white]⎿[/bright_white]  [{color}]{status_icon} {display_text}[/{color}]{deps_text}")
       else:
-        self.console.print(f"     [{color}]{status_icon} {display_text}{deps_text}[/{color}]")
-
-    self.console.print()
+        self.console.print(f"     [{color}]{status_icon} {display_text}[/{color}]{deps_text}")
 
   def show_todo_added(self, todo):
     """Show when a new todo is added dynamically.
@@ -782,15 +774,16 @@ class TerminalUI:
     Args:
       todo: The newly added Todo object
     """
-    self.console.print()
-    self.console.print(f"[#B7E0FF]+ Added new todo: {todo.task}[/#B7E0FF]")
-    self.console.print()
+    self._add_spacing()
+    self.console.print(f"[bright_cyan]+ Added new todo: {todo.task}[/bright_cyan]")
 
   def show_command_execution(self, command: str):
     """Show command execution in Claude Code style"""
-    self.console.print()
+    self._add_spacing()
     bullet = "⏺"
-    self.console.print(f"[white]{bullet}[/white] [bold bright_white]Bash[/bold bright_white]([bright_white]{command}[/bright_white])")
+    self.console.print(
+      f"[bright_white]{bullet}[/bright_white] [bold bright_white]Bash[/bold bright_white]([bright_yellow]{command}[/bright_yellow])"
+    )
 
   def show_command_result(self, result):
     """Show command result in Claude Code style"""
@@ -811,53 +804,53 @@ class TerminalUI:
     # Show output with ⎿ symbol
     if not result.success:
       # Error state - show error message first
-      self.console.print(f"  [white]⎿[/white]  [#E88388]Error: Exit code {result.exit_code}[/#E88388]")
+      self.console.print(f"  [bright_white]⎿[/bright_white]  [bright_red]Error: Exit code {result.exit_code}[/bright_red]")
       if output:
         output_display = output[:1500] + "..." if len(output) > 1500 else output
         lines = output_display.split("\n")
         for line in lines:
-          self.console.print(f"     [dim white]{line}[/dim white]")
+          self.console.print(f"     [white]{line}[/white]")
     elif output:
       # Success with output
       output_display = output[:1500] + "..." if len(output) > 1500 else output
       lines = output_display.split("\n")
       if lines:
-        self.console.print(f"  [white]⎿[/white]  [white]{lines[0]}[/white]")
+        self.console.print(f"  [bright_white]⎿[/bright_white]  [bright_white]{lines[0]}[/bright_white]")
         for line in lines[1:]:
-          self.console.print(f"     [white]{line}[/white]")
+          self.console.print(f"     [bright_white]{line}[/bright_white]")
     else:
       # Success with no output
-      self.console.print(f"  [white]⎿[/white]  [dim white](no output)[/dim white]")
-
-    self.console.print()  # Add spacing after command result
+      self.console.print(f"  [bright_white]⎿[/bright_white]  [white](no output)[/white]")
 
   def start_loading(self, message: str = "Thinking"):
-    """Start animated loading indicator"""
+    """Start animated loading indicator that disappears when stopped."""
     if self.loading_active:
       return
 
+    self._add_spacing()
     self.loading_active = True
 
     def animate_loading():
       animation_count = 0
       start_time = time.time()
       while self.loading_active:
-        # Animate bullet between circle, *, +
-        bullets = ["○", "*", "+"]
-        bullet = bullets[animation_count % 3]
+        # Animate bullet
+        bullets = ["○", "◐", "◑", "●"]
+        bullet = bullets[animation_count % 4]
 
         # Animate dots
-        dots = "." * (animation_count % 4)
+        dots = "." * ((animation_count % 3) + 1)
         spaces = " " * (3 - len(dots))
 
         # Calculate elapsed time
         elapsed_seconds = int(time.time() - start_time)
         time_display = f"({elapsed_seconds}s)"
 
-        loading_text = f"[bold #EB999A]{bullet}[/bold #EB999A] [bold #EB999A]{message}{dots}{spaces}[/bold #EB999A] [dim white]{time_display}[/dim white]"
+        loading_text = f"[dim white]{bullet} {message}{dots}{spaces} {time_display}[/dim white]"
 
         if self.loading_live is None:
-          self.loading_live = Live(loading_text, console=self.console, refresh_per_second=4)
+          # transient=True makes the loading indicator disappear when stopped
+          self.loading_live = Live(loading_text, console=self.console, refresh_per_second=4, transient=True)
           self.loading_live.start()
         else:
           self.loading_live.update(loading_text)
