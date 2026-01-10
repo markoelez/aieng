@@ -344,28 +344,23 @@ class TerminalUI:
   def show_step(self, step_text: str, is_final: bool = False):
     """Show a step in Claude Code style. Adds blank line before."""
     self._add_spacing()
-    bullet = "⏺"
-    if is_final:
-      self.console.print(f"[bright_green]{bullet}[/bright_green] [bright_white]{step_text}[/bright_white]")
-    else:
-      self.console.print(f"[bright_white]{bullet}[/bright_white] [bright_white]{step_text}[/bright_white]")
+    color = "bright_green" if is_final else "bright_white"
+    self.console.print(f"[{color}]⏺[/{color}] [bright_white]{step_text}[/bright_white]")
 
   def show_analyzing_files(self, file_contexts: List[dict]):
     if not file_contexts:
       return
 
     self._add_spacing()
-    bullet = "⏺"
-    self.console.print(f"[bright_white]{bullet}[/bright_white] [bright_white]Analyzing Files[/bright_white]")
+    self.console.print("[bright_white]⏺[/bright_white] [bright_white]Analyzing Files[/bright_white]")
     for ctx in file_contexts:
       self.console.print(f"  [bright_white]• {ctx['path']}[/bright_white]")
 
   def show_reading_file(self, file_path: str, lines_read: int = 0):
     """Show when a file is being read in Claude Code style"""
     self._add_spacing()
-    bullet = "⏺"
     self.console.print(
-      f"[bright_white]{bullet}[/bright_white] [bold bright_white]Read[/bold bright_white]([bright_cyan]{file_path}[/bright_cyan])"
+      f"[bright_white]⏺[/bright_white] [bold bright_white]Read[/bold bright_white]([bright_cyan]{file_path}[/bright_cyan])"
     )
     if lines_read > 0:
       self.console.print(f"  [bright_white]⎿[/bright_white]  [white]Read {lines_read} line{'s' if lines_read != 1 else ''}[/white]")
@@ -380,9 +375,8 @@ class TerminalUI:
   def show_search_header(self, query: str, search_description: str):
     """Show search in Claude Code style"""
     self._add_spacing()
-    bullet = "⏺"
     self.console.print(
-      f"[bright_white]{bullet}[/bright_white] [bold bright_white]Search[/bold bright_white]([bright_magenta]{query}[/bright_magenta])"
+      f"[bright_white]⏺[/bright_white] [bold bright_white]Search[/bold bright_white]([bright_magenta]{query}[/bright_magenta])"
     )
     self.console.print(f"  [bright_white]⎿[/bright_white]  [white]{search_description}[/white]")
 
@@ -405,24 +399,18 @@ class TerminalUI:
   ):
     """Show diff header in Claude Code style"""
     self._add_spacing()
-    bullet = "⏺"
-    if is_new_file:
-      operation = "Write"
-    else:
-      operation = "Update"
+    operation = "Write" if is_new_file else "Update"
     self.console.print(
-      f"[bright_white]{bullet}[/bright_white] [bold bright_white]{operation}[/bold bright_white]([bright_cyan]{file_path}[/bright_cyan])"
+      f"[bright_white]⏺[/bright_white] [bold bright_white]{operation}[/bold bright_white]([bright_cyan]{file_path}[/bright_cyan])"
     )
 
-    # Show line change summary like Claude Code
     if added_lines > 0 or removed_lines > 0:
       parts = []
       if added_lines > 0:
         parts.append(f"[bright_green]Added {added_lines} line{'s' if added_lines != 1 else ''}[/bright_green]")
       if removed_lines > 0:
         parts.append(f"[bright_red]removed {removed_lines} line{'s' if removed_lines != 1 else ''}[/bright_red]")
-      change_summary = ", ".join(parts)
-      self.console.print(f"  [bright_white]⎿[/bright_white]  {change_summary}")
+      self.console.print(f"  [bright_white]⎿[/bright_white]  {', '.join(parts)}")
     elif edit_description:
       self.console.print(f"  [bright_white]⎿[/bright_white]  [white]{edit_description}[/white]")
 
@@ -588,9 +576,7 @@ class TerminalUI:
 
   def show_todo_plan(self, plan_summary: str, todos, current_todo_id=None, completed_todo_ids=None):
     self._add_spacing()
-    # Custom formatting for Update Todos header
-    bullet = "⏺"
-    self.console.print(f"[bright_white]{bullet}[/bright_white] [bold bright_white]Update Todos[/bold bright_white]")
+    self.console.print("[bright_white]⏺[/bright_white] [bold bright_white]Update Todos[/bold bright_white]")
 
     if completed_todo_ids is None:
       completed_todo_ids = []
@@ -600,37 +586,27 @@ class TerminalUI:
       is_completed = todo.id in completed_todo_ids
       is_current = todo.id == current_todo_id
 
-      if i == 0:
-        # First todo on same line as ⎿
-        if is_completed:
-          self.console.print(f"  [white]⎿[/white]  [#8FDC8D]☒ {todo.task}{deps_text}[/#8FDC8D]")
-        elif is_current:
-          self.console.print(f"  [white]⎿[/white]  [bold #B7E0FF]⏺ {todo.task}{deps_text}[/bold #B7E0FF]")
-        else:
-          self.console.print(f"  [white]⎿[/white]  [white]☐ {todo.task}{deps_text}[/white]")
+      if is_completed:
+        icon, style = "☒", "#8FDC8D"
+      elif is_current:
+        icon, style = "⏺", "bold #B7E0FF"
       else:
-        # Subsequent todos aligned with first
-        if is_completed:
-          self.console.print(f"     [#8FDC8D]☒ {todo.task}{deps_text}[/#8FDC8D]")
-        elif is_current:
-          self.console.print(f"     [bold #B7E0FF]⏺ {todo.task}{deps_text}[/bold #B7E0FF]")
-        else:
-          self.console.print(f"     [white]☐ {todo.task}{deps_text}[/white]")
+        icon, style = "☐", "white"
+
+      prefix = "  [white]⎿[/white]  " if i == 0 else "     "
+      self.console.print(f"{prefix}[{style}]{icon} {todo.task}{deps_text}[/{style}]")
 
   def show_processing_todo(self, todo_id: int, task: str):
     """Show which todo is being processed"""
     self._add_spacing()
-    bullet = "⏺"
     self.console.print(
-      f"[bright_cyan]{bullet}[/bright_cyan] [bold bright_white]Working on:[/bold bright_white] [bright_white]{task}[/bright_white]"
+      f"[bright_cyan]⏺[/bright_cyan] [bold bright_white]Working on:[/bold bright_white] [bright_white]{task}[/bright_white]"
     )
 
   def show_self_reflection(self, reflection: SelfReflection):
     """Show self-reflection in Claude Code style"""
     self._add_spacing()
-    bullet = "⏺"
-    # Show the current state as the main action
-    self.console.print(f"[bright_white]{bullet}[/bright_white] [bright_white]{reflection.current_state}[/bright_white]")
+    self.console.print(f"[bright_white]⏺[/bright_white] [bright_white]{reflection.current_state}[/bright_white]")
 
   def show_todo_thinking(self, thinking: str):
     """Show thinking process - minimal display"""
@@ -642,14 +618,12 @@ class TerminalUI:
   def show_todo_completion(self, todo_id: int, completed: bool, next_steps: str = ""):
     """Show todo completion status"""
     self._add_spacing()
-    if completed:
-      bullet = "⏺"
-      self.console.print(f"[bright_green]{bullet}[/bright_green] [bright_green]Completed[/bright_green]")
-    else:
-      bullet = "⏺"
-      self.console.print(f"[bright_red]{bullet}[/bright_red] [bright_red]Incomplete[/bright_red]")
-      if next_steps:
-        self.console.print(f"  [bright_white]⎿[/bright_white]  [white]Next: {next_steps}[/white]")
+    bullet = "⏺"
+    color = "bright_green" if completed else "bright_red"
+    status = "Completed" if completed else "Incomplete"
+    self.console.print(f"[{color}]{bullet}[/{color}] [{color}]{status}[/{color}]")
+    if not completed and next_steps:
+      self.console.print(f"  [bright_white]⎿[/bright_white]  [white]Next: {next_steps}[/white]")
 
   def show_llm_retry(self, attempt: int, max_retries: int, error: str):
     self.console.print(f"  [bright_white]️ LLM request failed (attempt {attempt}/{max_retries}): {error[:50]}...[/bright_white]")
@@ -665,8 +639,7 @@ class TerminalUI:
   def show_error(self, error: str):
     """Show error in Claude Code style"""
     self._add_spacing()
-    bullet = "⏺"
-    self.console.print(f"[bright_red]{bullet}[/bright_red] [bright_red]Error: {error}[/bright_red]")
+    self.console.print(f"[bright_red]⏺[/bright_red] [bright_red]Error: {error}[/bright_red]")
 
   def show_partial_success(self, successful_edits: int, total_edits: int, error: str):
     self._add_spacing()
@@ -692,41 +665,25 @@ class TerminalUI:
     self.console.clear()
 
   def show_todo_list(self, todos: list, current_todo_id: Optional[int] = None):
-    """Show the todo list with status indicators like Claude Code.
-
-    Args:
-      todos: List of Todo objects
-      current_todo_id: ID of the currently in-progress todo
-    """
+    """Show the todo list with status indicators like Claude Code."""
     self._add_spacing()
-    bullet = "⏺"
-    self.console.print(f"[bright_white]{bullet}[/bright_white] [bold bright_white]Todo List[/bold bright_white]")
+    self.console.print("[bright_white]⏺[/bright_white] [bold bright_white]Todo List[/bold bright_white]")
 
     for i, todo in enumerate(todos):
-      # Determine status indicator and color
+      is_in_progress = todo.status == TodoStatus.IN_PROGRESS or todo.id == current_todo_id
+
       if todo.status == TodoStatus.COMPLETED:
-        status_icon = "☒"
-        color = "bright_green"
-      elif todo.status == TodoStatus.IN_PROGRESS or todo.id == current_todo_id:
-        status_icon = "⏺"
-        color = "bright_cyan"
+        status_icon, color = "☒", "bright_green"
+      elif is_in_progress:
+        status_icon, color = "⏺", "bright_cyan"
       else:
-        status_icon = "☐"
-        color = "bright_white"
+        status_icon, color = "☐", "bright_white"
 
-      # Build deps text
       deps_text = f" [dim](depends on: {', '.join(map(str, todo.dependencies))})[/dim]" if todo.dependencies else ""
+      display_text = (todo.active_form or todo.task) if is_in_progress else todo.task
+      prefix = "  [bright_white]⎿[/bright_white]  " if i == 0 else "     "
 
-      # Display with active form for in-progress, task for others
-      if todo.status == TodoStatus.IN_PROGRESS or todo.id == current_todo_id:
-        display_text = todo.active_form or todo.task
-      else:
-        display_text = todo.task
-
-      if i == 0:
-        self.console.print(f"  [bright_white]⎿[/bright_white]  [{color}]{status_icon} {display_text}[/{color}]{deps_text}")
-      else:
-        self.console.print(f"     [{color}]{status_icon} {display_text}[/{color}]{deps_text}")
+      self.console.print(f"{prefix}[{color}]{status_icon} {display_text}[/{color}]{deps_text}")
 
   def show_todo_added(self, todo):
     """Show when a new todo is added dynamically.
@@ -740,9 +697,8 @@ class TerminalUI:
   def show_command_execution(self, command: str):
     """Show command execution in Claude Code style"""
     self._add_spacing()
-    bullet = "⏺"
     self.console.print(
-      f"[bright_white]{bullet}[/bright_white] [bold bright_white]Bash[/bold bright_white]([bright_yellow]{command}[/bright_yellow])"
+      f"[bright_white]⏺[/bright_white] [bold bright_white]Bash[/bold bright_white]([bright_yellow]{command}[/bright_yellow])"
     )
 
   def show_command_result(self, result):

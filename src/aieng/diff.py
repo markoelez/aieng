@@ -79,19 +79,15 @@ class DiffProcessor:
   def validate_edit(self, edit: FileEdit) -> DiffResult:
     file_path = self.project_root / edit.file_path
 
-    # If old_content is empty, this is a new file creation
+    # New file creation
     if not edit.old_content.strip():
-      if file_path.exists():
-        return DiffResult(False, f"File already exists: {edit.file_path}")
-      return DiffResult(True)
+      return DiffResult(False, f"File already exists: {edit.file_path}") if file_path.exists() else DiffResult(True)
 
-    # If old_content is the special rewrite marker, this is a complete file rewrite
+    # Complete file rewrite
     if edit.old_content == "REWRITE_ENTIRE_FILE":
-      if not file_path.exists():
-        return DiffResult(False, f"File does not exist: {edit.file_path}")
-      return DiffResult(True)
+      return DiffResult(True) if file_path.exists() else DiffResult(False, f"File does not exist: {edit.file_path}")
 
-    # For existing file edits
+    # Existing file edit
     if not file_path.exists():
       return DiffResult(False, f"File does not exist: {edit.file_path}")
 
@@ -101,69 +97,58 @@ class DiffProcessor:
     except Exception as e:
       return DiffResult(False, f"Error reading file {edit.file_path}: {e}")
 
-    # Check if it's a complete file replacement (content matches when stripped)
-    if edit.old_content.strip() == current_content.strip():
+    # Check for complete file replacement or partial replacement
+    if edit.old_content.strip() == current_content.strip() or edit.old_content in current_content:
       return DiffResult(True)
 
-    # Check if it's a partial replacement (content found in file)
-    if edit.old_content in current_content:
-      return DiffResult(True)
-
-    # Content not found
     return DiffResult(False, f"Content validation will fail for {edit.file_path}")
 
   def apply_edit(self, edit: FileEdit) -> DiffResult:
     file_path = self.project_root / edit.file_path
 
     try:
-      # Check if this is a directory creation (path ends with /)
+      # Directory creation
       if edit.file_path.endswith("/"):
-        # Create directory
         file_path.mkdir(parents=True, exist_ok=True)
         return DiffResult(True)
 
-      # If old_content is empty, this is a new file creation
+      # New file creation
       if not edit.old_content.strip():
-        # Ensure parent directories exist
         file_path.parent.mkdir(parents=True, exist_ok=True)
+        return self._write_file(file_path, edit.new_content)
 
-        with open(file_path, "w", encoding="utf-8") as f:
-          f.write(edit.new_content)
-        return DiffResult(True)
-
-      # If old_content is the special rewrite marker, replace entire file
+      # Complete file rewrite
       if edit.old_content == "REWRITE_ENTIRE_FILE":
-        with open(file_path, "w", encoding="utf-8") as f:
-          f.write(edit.new_content)
-        return DiffResult(True)
+        return self._write_file(file_path, edit.new_content)
 
-      # For existing file edits
+      # Existing file edit
       with open(file_path, "r", encoding="utf-8") as f:
         current_content = f.read()
 
-      # Check if old_content matches the entire file (complete rewrite)
+      # Complete file replacement
       if edit.old_content.strip() == current_content.strip():
-        # Complete file replacement
-        with open(file_path, "w", encoding="utf-8") as f:
-          f.write(edit.new_content)
-        return DiffResult(True)
+        return self._write_file(file_path, edit.new_content)
 
-      # Check if old_content is found in the file (partial replacement)
+      # Partial replacement
       if edit.old_content in current_content:
-        new_file_content = current_content.replace(edit.old_content, edit.new_content, 1)
-        with open(file_path, "w", encoding="utf-8") as f:
-          f.write(new_file_content)
-        return DiffResult(True)
+        new_content = current_content.replace(edit.old_content, edit.new_content, 1)
+        return self._write_file(file_path, new_content)
 
-      # Content not found - provide detailed error
-      old_preview = edit.old_content[:100] + "..." if len(edit.old_content) > 100 else edit.old_content
-      file_preview = current_content[:100] + "..." if len(current_content) > 100 else current_content
+      # Content not found
+      old_preview = (edit.old_content[:100] + "...") if len(edit.old_content) > 100 else edit.old_content
+      file_preview = (current_content[:100] + "...") if len(current_content) > 100 else current_content
       return DiffResult(
         False, f"Old content not found in {edit.file_path}.\nLooking for: {repr(old_preview)}\nFile starts with: {repr(file_preview)}"
       )
 
     except Exception as e:
       return DiffResult(False, f"Error applying edit to {edit.file_path}: {e}")
+
+  def _write_file(self, file_path: Path, content: str) -> DiffResult:
+    """Write content to a file and return success result."""
+    with open(file_path, "w", encoding="utf-8") as f:
+      f.write(content)
+    return DiffResult(True)
 
   def apply_edits(self, edits: List[FileEdit]) -> List[DiffResult]:
     results = []

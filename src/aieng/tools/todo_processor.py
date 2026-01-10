@@ -122,72 +122,25 @@ PRODUCTIVITY TIPS:
 
   def _clean_todo_result(self, parsed: Dict) -> Dict:
     """Clean and validate the parsed todo result."""
-    cleaned = {
+    return {
       "thinking": str(parsed.get("thinking", "")),
-      "commands": self._clean_commands(parsed.get("commands", [])),
-      "searches": self._clean_searches(parsed.get("searches", [])),
-      "edits": self._clean_edits(parsed.get("edits", [])),
+      "commands": self._clean_dict_list(parsed.get("commands", []), ["command", "description"]),
+      "searches": self._clean_dict_list(parsed.get("searches", []), ["query", "command", "description"]),
+      "edits": self._clean_dict_list(parsed.get("edits", []), ["file_path", "old_content", "new_content", "description"]),
       "completed": bool(parsed.get("completed", False)),
       "next_steps": self._clean_next_steps(parsed.get("next_steps", "")),
     }
-    return cleaned
 
-  def _clean_commands(self, commands) -> List[Dict]:
-    """Clean and validate commands."""
-    if not isinstance(commands, list):
+  def _clean_dict_list(self, items, keys: List[str]) -> List[Dict]:
+    """Clean and validate a list of dictionaries with specified keys."""
+    if not isinstance(items, list):
       return []
-
-    clean_commands = []
-    for cmd in commands:
-      if isinstance(cmd, dict):
-        clean_commands.append({"command": str(cmd.get("command", "")), "description": str(cmd.get("description", ""))})
-      elif isinstance(cmd, str):
-        clean_commands.append({"command": cmd, "description": "Command execution"})
-    return clean_commands
-
-  def _clean_searches(self, searches) -> List[Dict]:
-    """Clean and validate searches."""
-    if not isinstance(searches, list):
-      return []
-
-    clean_searches = []
-    for search in searches:
-      if isinstance(search, dict):
-        clean_searches.append(
-          {
-            "query": str(search.get("query", "")),
-            "command": str(search.get("command", "")),
-            "description": str(search.get("description", "")),
-          }
-        )
-    return clean_searches
-
-  def _clean_edits(self, edits) -> List[Dict]:
-    """Clean and validate edits."""
-    if not isinstance(edits, list):
-      return []
-
-    clean_edits = []
-    for edit in edits:
-      if isinstance(edit, dict):
-        clean_edits.append(
-          {
-            "file_path": str(edit.get("file_path", "")),
-            "old_content": str(edit.get("old_content", "")),
-            "new_content": str(edit.get("new_content", "")),
-            "description": str(edit.get("description", "")),
-          }
-        )
-    return clean_edits
+    return [{key: str(item.get(key, "")) for key in keys} for item in items if isinstance(item, dict)]
 
   def _clean_next_steps(self, next_steps) -> str:
     """Clean and validate next_steps."""
     if isinstance(next_steps, list):
-      if next_steps:
-        return " ".join(str(item) for item in next_steps)
-      else:
-        return ""
-    elif isinstance(next_steps, str):
+      return " ".join(str(item) for item in next_steps) if next_steps else ""
+    if isinstance(next_steps, str):
       return next_steps
-    else:
-      return str(next_steps) if next_steps else ""
+    return str(next_steps) if next_steps else ""

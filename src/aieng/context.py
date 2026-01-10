@@ -30,20 +30,13 @@ class FileContextManager:
     self.max_total_context = 500000  # 500KB total context limit
 
   def _should_ignore(self, file_path: Path) -> bool:
-    # Check if any parent directory should be ignored
     path_parts = file_path.relative_to(self.project_root).parts
-
-    # Check for specific directories to ignore
     ignore_dirs = {".venv", "venv", ".git", "node_modules", "__pycache__", ".pytest_cache", "dist", "build"}
+
     if any(part in ignore_dirs for part in path_parts):
       return True
 
-    # Check file patterns
-    for pattern in self.ignore_patterns:
-      if fnmatch.fnmatch(file_path.name, pattern):
-        return True
-
-    return False
+    return any(fnmatch.fnmatch(file_path.name, pattern) for pattern in self.ignore_patterns)
 
   def _is_text_file(self, file_path: Path) -> bool:
     try:
@@ -54,52 +47,47 @@ class FileContextManager:
       return False
 
   def _get_file_relevance_score(self, file_path: Path, keywords: List[str]) -> float:
-    score = 0.0
-    file_name = file_path.name.lower()
-    file_content = ""
-
     try:
       with open(file_path, "r", encoding="utf-8") as f:
         file_content = f.read(self.max_file_size).lower()
     except:
       return 0.0
 
+    score = 0.0
+    file_name = file_path.name.lower()
+
     # Score based on file extension
-    if file_path.suffix in [".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".cpp", ".c", ".h"]:
+    code_extensions = {".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".cpp", ".c", ".h"}
+    doc_extensions = {".md", ".txt", ".rst"}
+    if file_path.suffix in code_extensions:
       score += 1.0
-    elif file_path.suffix in [".md", ".txt", ".rst"]:
+    elif file_path.suffix in doc_extensions:
       score += 0.3
 
-    # Score based on keywords in filename
+    # Score based on keywords in filename and content
     for keyword in keywords:
-      if keyword.lower() in file_name:
+      keyword_lower = keyword.lower()
+      if keyword_lower in file_name:
         score += 2.0
-
-    # Score based on keywords in content
-    for keyword in keywords:
-      if keyword.lower() in file_content:
+      if keyword_lower in file_content:
         score += 1.0
 
     return score
 
   def find_relevant_files(self, user_request: str, max_files: int = 15) -> List[Path]:
-    keywords = user_request.lower().split()
-    keywords = [word.strip(".,!?;:") for word in keywords if len(word) > 2]
-
+    keywords = [word.strip(".,!?;:") for word in user_request.lower().split() if len(word) > 2]
     file_scores = []
 
     for file_path in self.project_root.rglob("*"):
-      if (
-        file_path.is_file()
-        and not self._should_ignore(file_path)
-        and self._is_text_file(file_path)
-        and file_path.stat().st_size <= self.max_file_size
-      ):
-        score = self._get_file_relevance_score(file_path, keywords)
-        if score > 0:
-          file_scores.append((file_path, score))
+      if not file_path.is_file() or self._should_ignore(file_path):
+        continue
+      if not self._is_text_file(file_path) or file_path.stat().st_size > self.max_file_size:
+        continue
 
-    # Sort by score and return top files
+      score = self._get_file_relevance_score(file_path, keywords)
+      if score > 0:
+        file_scores.append((file_path, score))
+
     file_scores.sort(key=lambda x: x[1], reverse=True)
     return [file_path for file_path, _ in file_scores[:max_files]]
 

@@ -31,34 +31,27 @@ class AIAgentOrchestrator:
 
   def _ui_callback(self, action: str, *args):
     """Callback for agent to show UI messages"""
-    if action == "show_llm_retry":
-      self.ui.show_llm_retry(*args)
-    elif action == "show_llm_retry_success":
-      self.ui.show_llm_retry_success(*args)
-    elif action == "show_llm_retry_failed":
-      self.ui.show_llm_retry_failed(*args)
-    elif action == "show_command_execution":
-      self.ui.show_command_execution(*args)
-    elif action == "show_command_result":
-      self.ui.show_command_result(*args)
-    elif action == "start_loading":
-      self.ui.start_loading(*args)
+    action_map = {
+      "show_llm_retry": self.ui.show_llm_retry,
+      "show_llm_retry_success": self.ui.show_llm_retry_success,
+      "show_llm_retry_failed": self.ui.show_llm_retry_failed,
+      "show_command_execution": self.ui.show_command_execution,
+      "show_command_result": self.ui.show_command_result,
+      "start_loading": self.ui.start_loading,
+    }
+    if action in action_map:
+      action_map[action](*args)
     elif action == "stop_loading":
       self.ui.stop_loading()
 
   def _todo_ui_callback(self, event: str, data: dict):
-    """Callback for TodoManager to update UI on state changes.
-
-    Only shows the full todo list once at plan creation.
-    Status changes are shown inline, not as full list reprints.
-    """
-    if event == "plan_set":
-      # Show the full todo list only once when plan is created
-      self.ui.show_todo_list(data["todos"], current_todo_id=None)
-    elif event == "todo_added":
-      self.ui.show_todo_added(data["todo"])
-    # Note: todo_in_progress and todo_completed are handled inline by show_processing_todo
-    # and show_todo_completion, so we don't reprint the full list
+    """Callback for TodoManager to update UI on state changes."""
+    event_handlers = {
+      "plan_set": lambda: self.ui.show_todo_list(data["todos"], current_todo_id=None),
+      "todo_added": lambda: self.ui.show_todo_added(data["todo"]),
+    }
+    if event in event_handlers:
+      event_handlers[event]()
 
   def load_config(self) -> dict:
     """Load configuration from aieng.toml if it exists."""

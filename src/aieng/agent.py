@@ -86,22 +86,18 @@ class Agent:
 
   async def process_request(self, user_request: str, file_contexts: List[Dict[str, str]]) -> LLMResponse:
     """Process a user request and generate edits."""
-    try:
-      messages = [
-        {"role": "system", "content": self._build_system_prompt()},
-        {"role": "user", "content": self._build_user_prompt(user_request, file_contexts)},
-      ]
+    messages = [
+      {"role": "system", "content": self._build_system_prompt()},
+      {"role": "user", "content": self._build_user_prompt(user_request, file_contexts)},
+    ]
 
-      result = await self.llm_client.execute(messages=messages, response_format={"type": "json_object"})
+    result = await self.llm_client.execute(messages=messages, response_format={"type": "json_object"})
 
-      if not result.success:
-        raise Exception(f"LLM request failed: {result.error}")
+    if not result.success:
+      raise Exception(f"LLM request failed: {result.error}")
 
-      parsed = parse_llm_json(result.data)
-      return LLMResponse(**parsed)
-
-    except Exception as e:
-      raise Exception(f"Error processing LLM request: {e}")
+    parsed = parse_llm_json(result.data)
+    return LLMResponse(**parsed)
 
   def parse_edits(self, llm_response: LLMResponse) -> List[FileEdit]:
     """Parse edits from LLM response."""
@@ -131,12 +127,10 @@ class Agent:
     completed_todos: Optional[List[Todo]] = None,
   ) -> SelfReflection:
     """Perform self-reflection to plan next actions."""
-    if completed_todos is None:
-      completed_todos = []
-
-    completed_context = ""
-    if completed_todos:
-      completed_context = "Previously completed todos:\n" + "\n".join([f"- {t.task}" for t in completed_todos]) + "\n\n"
+    completed_todos = completed_todos or []
+    completed_context = (
+      "Previously completed todos:\n" + "\n".join([f"- {t.task}" for t in completed_todos]) + "\n\n" if completed_todos else ""
+    )
 
     prompt = f"""
 You are an AI agent thinking step-by-step about the next actions for a todo item.
@@ -152,7 +146,7 @@ Think step-by-step about what you need to do next and express it as deliberate a
 Respond with JSON containing:
 - "current_state": A concise action statement starting with "Now I will..." (e.g., "Now I will create the test files", "Now I will implement the feature")
 - "next_action_plan": A brief description of the specific actions you'll take, formatted as a clear action sequence
-- "action_type": Primary type of actions needed - "edits", "commands", "searches", or "mixed"  
+- "action_type": Primary type of actions needed - "edits", "commands", "searches", or "mixed"
 - "confidence_level": Your confidence in the plan - "high", "medium", or "low"
 
 Keep both statements concise and action-oriented. Focus on concrete actions like creating, modifying, or implementing code.
@@ -167,12 +161,12 @@ Keep both statements concise and action-oriented. Focus on concrete actions like
     ]
 
     result = await self.llm_client.execute(messages, response_format={"type": "json_object"})
+    default_reflection = SelfReflection(
+      current_state="Error analyzing state", next_action_plan="Retry analysis", action_type="mixed", confidence_level="low"
+    )
 
     if not result.success:
-      # Return a default reflection on error
-      return SelfReflection(
-        current_state="Error analyzing state", next_action_plan="Retry analysis", action_type="mixed", confidence_level="low"
-      )
+      return default_reflection
 
     try:
       parsed = parse_llm_json(result.data)
@@ -183,12 +177,7 @@ Keep both statements concise and action-oriented. Focus on concrete actions like
         confidence_level=str(parsed.get("confidence_level", "medium")),
       )
     except Exception:
-      return SelfReflection(
-        current_state="Failed to parse reflection",
-        next_action_plan="Proceed with standard todo processing",
-        action_type="mixed",
-        confidence_level="low",
-      )
+      return default_reflection
 
   async def process_todo(
     self,

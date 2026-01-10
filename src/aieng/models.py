@@ -113,57 +113,26 @@ class TodoResult(BaseModel):
   @field_validator("next_steps")
   @classmethod
   def validate_next_steps(cls, v):
-    if v is None:
-      return ""
-    return str(v)
+    return "" if v is None else str(v)
 
   @field_validator("commands")
   @classmethod
   def validate_commands(cls, v):
-    if v is None:
-      return []
-    if not isinstance(v, list):
-      return []
-    validated_commands = []
-    for cmd in v:
-      if isinstance(cmd, dict):
-        command_dict = {"command": str(cmd.get("command", "")), "description": str(cmd.get("description", ""))}
-        validated_commands.append(command_dict)
-    return validated_commands
+    return _validate_dict_list(v, ["command", "description"])
 
   @field_validator("searches")
   @classmethod
   def validate_searches(cls, v):
-    if v is None:
-      return []
-    if not isinstance(v, list):
-      return []
-    validated_searches = []
-    for search in v:
-      if isinstance(search, dict):
-        search_dict = {
-          "query": str(search.get("query", "")),
-          "command": str(search.get("command", "")),
-          "description": str(search.get("description", "")),
-        }
-        validated_searches.append(search_dict)
-    return validated_searches
+    return _validate_dict_list(v, ["query", "command", "description"])
 
   @field_validator("edits")
   @classmethod
   def validate_edits(cls, v):
-    if v is None:
-      return []
-    if not isinstance(v, list):
-      return []
-    validated_edits = []
-    for edit in v:
-      if isinstance(edit, dict):
-        edit_dict = {
-          "file_path": str(edit.get("file_path", "")),
-          "old_content": str(edit.get("old_content", "")),
-          "new_content": str(edit.get("new_content", "")),
-          "description": str(edit.get("description", "")),
-        }
-        validated_edits.append(edit_dict)
-    return validated_edits
+    return _validate_dict_list(v, ["file_path", "old_content", "new_content", "description"])
+
+
+def _validate_dict_list(v, keys: List[str]) -> List[Dict[str, str]]:
+  """Helper to validate and clean a list of dictionaries with specified keys."""
+  if not isinstance(v, list):
+    return []
+  return [{key: str(item.get(key, "")) for key in keys} for item in v if isinstance(item, dict)]
